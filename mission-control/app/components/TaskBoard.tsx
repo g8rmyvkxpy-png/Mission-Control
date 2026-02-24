@@ -421,19 +421,105 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
                   {/* Show result/error for completed/failed tasks */}
                   {(task.status === 'done' || task.status === 'failed') && task.result && (
                     <div 
-                      onClick={() => setShowResults(showResults === task.id ? null : task.id)}
                       style={{
                         fontSize: '11px',
                         padding: '8px',
                         background: task.status === 'failed' ? '#ef444420' : '#22c55e20',
                         borderRadius: '6px',
                         marginBottom: '12px',
-                        cursor: 'pointer',
                         color: task.status === 'failed' ? '#ef4444' : '#22c55e',
                       }}
                     >
                       {task.status === 'failed' ? `❌ ${task.error || 'Failed'}` : '✅ Completed'}
-                      {showResults === task.id && task.result && (
+                      
+                      {/* Show detailed summary if available */}
+                      {task.result.summary && (
+                        <div 
+                          onClick={() => setShowResults(showResults === task.id ? null : task.id)}
+                          style={{ cursor: 'pointer', marginTop: '8px' }}
+                        >
+                          {/* Summary overview */}
+                          <div style={{ marginBottom: '8px' }}>
+                            <strong style={{ color: currentTheme.text }}>{task.result.summary.overview}</strong>
+                          </div>
+                          
+                          {/* Actions taken */}
+                          {task.result.summary.actions?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>ACTIONS TAKEN</div>
+                              {task.result.summary.actions.map((action: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: currentTheme.text, marginLeft: '8px' }}>• {action}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Key results */}
+                          {task.result.summary.results?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>RESULTS</div>
+                              {task.result.summary.results.map((r: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: '#22c55e', marginLeft: '8px' }}>✓ {r}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Outputs/Links */}
+                          {task.result.summary.outputs?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>OUTPUTS</div>
+                              {task.result.summary.outputs.slice(0, 4).map((out: any, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', marginLeft: '8px', marginBottom: '2px' }}>
+                                  <span style={{ color: currentTheme.textSecondary }}>{out.label}:</span>{' '}
+                                  {out.type === 'link' || out.type === 'issue' || out.type === 'tweet' || out.type === 'github' ? (
+                                    <a 
+                                      href={out.value} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ color: '#3b82f6', textDecoration: 'none' }}
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      {out.value.substring(0, 50)}...
+                                    </a>
+                                  ) : (
+                                    <span style={{ color: currentTheme.text }}>{out.value.substring(0, 80)}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Metrics */}
+                          {task.result.summary.metrics?.length > 0 && (
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                              {task.result.summary.metrics.map((m: any, i: number) => (
+                                <span key={i} style={{ fontSize: '9px', padding: '2px 6px', background: currentTheme.background, borderRadius: '3px', color: currentTheme.textSecondary }}>
+                                  {m.label}: <strong style={{ color: currentTheme.text }}>{m.value}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Next steps */}
+                          {task.result.summary.nextSteps?.length > 0 && (
+                            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: `1px solid ${currentTheme.border}` }}>
+                              <div style={{ fontSize: '9px', color: '#f59e0b', marginBottom: '2px' }}>NEXT STEPS</div>
+                              {task.result.summary.nextSteps.map((step: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: currentTheme.text, marginLeft: '8px' }}>→ {step}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div 
+                            onClick={() => setShowResults(showResults === task.id ? null : task.id)}
+                            style={{ fontSize: '9px', color: currentTheme.textSecondary, marginTop: '8px', textAlign: 'center', cursor: 'pointer' }}
+                          >
+                            {showResults === task.id ? '▲ Click to hide raw result' : '▼ Click to show raw result'}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Fallback to raw JSON if no summary */}
+                      {showResults === task.id && !task.result.summary && (
                         <pre style={{ 
                           marginTop: '8px', 
                           padding: '8px', 

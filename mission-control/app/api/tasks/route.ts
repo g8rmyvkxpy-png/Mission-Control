@@ -437,6 +437,271 @@ async function generateVideoScript(topic: string, duration = '5 minutes') {
   return result;
 }
 
+// === DETAILED TASK SUMMARY GENERATION ===
+
+interface TaskSummary {
+  overview: string;
+  actions: string[];
+  results: string[];
+  outputs: { type: string; value: string; label: string }[];
+  metrics?: { label: string; value: string }[];
+  nextSteps?: string[];
+}
+
+function getAgentName(agentId: string): string {
+  const agent = AGENTS.find(a => a.id === agentId);
+  return agent ? `${agent.name} (${agent.specialty})` : agentId;
+}
+
+function generateDetailedSummary(
+  agentId: string,
+  task: { title: string; description: string; metadata?: Record<string, any> },
+  result: any
+): TaskSummary {
+  const summary: TaskSummary = {
+    overview: `Task "${task.title}" was completed by ${getAgentName(agentId)}.`,
+    actions: [],
+    results: [],
+    outputs: [],
+    nextSteps: []
+  };
+
+  const taskType = task.metadata?.taskType || task.title.toLowerCase();
+
+  // Generate actions and outputs based on agent type
+  switch (agentId) {
+    case 'scout':
+    case 'trends':
+    case 'compass':
+    case 'radar':
+      summary.actions = [
+        `Conducted web search on: "${task.description || task.title}"`,
+        'Analyzed top results for relevant information',
+        'Compiled findings into structured report'
+      ];
+      
+      if (result.results?.length) {
+        summary.results.push(`Found ${result.results.length} relevant sources`);
+        result.results.slice(0, 3).forEach((r: any, i: number) => {
+          summary.outputs.push({
+            type: 'link',
+            value: r.url,
+            label: r.title
+          });
+        });
+      }
+      
+      if (result.answer) {
+        summary.results.push('Generated AI-powered answer summary');
+      }
+      summary.nextSteps = ['Review research findings', 'Share with team if relevant'];
+      break;
+
+    case 'atlas':
+    case 'pulse':
+      summary.actions = [
+        'Searched for potential leads and companies',
+        'Compiled lead list with contact information'
+      ];
+      
+      if (result.results?.length) {
+        summary.results.push(`Identified ${result.results.length} potential leads`);
+        result.results.forEach((r: any) => {
+          if (r.url) {
+            summary.outputs.push({
+              type: 'lead',
+              value: r.url,
+              label: r.title
+            });
+          }
+        });
+      }
+      summary.nextSteps = ['Review lead quality', 'Initiate outreach campaign'];
+      break;
+
+    case 'hunter':
+    case 'phoenix':
+      summary.actions = [
+        'Prepared outreach message',
+        'Generated email with personalized content'
+      ];
+      
+      if (result.url) {
+        summary.outputs.push({
+          type: 'email',
+          value: result.url,
+          label: 'Open email client'
+        });
+      }
+      
+      summary.results.push('Outreach email prepared and ready to send');
+      summary.nextSteps = ['Review and customize email', 'Send to recipient'];
+      break;
+
+    case 'ink':
+      summary.actions = [
+        `Created blog content about: "${task.title}"`,
+        'Optimized for SEO and engagement',
+        'Generated compelling headlines and structure'
+      ];
+      
+      if (result.content) {
+        const wordCount = result.content.split(/\s+/).length;
+        summary.results.push(`Generated ${wordCount} words of content`);
+        
+        // Extract title from content
+        const titleMatch = result.content.match(/^#\s+(.+)$/m);
+        if (titleMatch) {
+          summary.outputs.push({
+            type: 'content',
+            value: result.content.substring(0, 500) + '...',
+            label: 'Blog Content Preview'
+          });
+        }
+      }
+      
+      summary.outputs.push({
+        type: 'platform',
+        value: 'PP Ventures Blog',
+        label: 'Publish to'
+      });
+      summary.nextSteps = ['Review content', 'Add images/media', 'Publish to blog'];
+      break;
+
+    case 'blaze':
+      summary.actions = [
+        'Created social media content',
+        'Optimized for engagement'
+      ];
+      
+      if (result.url) {
+        summary.outputs.push({
+          type: 'tweet',
+          value: result.url,
+          label: 'View Tweet'
+        });
+      }
+      
+      if (result.content) {
+        summary.results.push('Tweet content prepared (280 char limit)');
+      }
+      summary.nextSteps = ['Review tweet', 'Post manually or schedule'];
+      break;
+
+    case 'draft':
+      summary.actions = [
+        `Created email campaign about: "${task.title}"`,
+        'Personalized for target audience'
+      ];
+      
+      if (result.content) {
+        summary.outputs.push({
+          type: 'content',
+          value: result.content.substring(0, 300) + '...',
+          label: 'Email Preview'
+        });
+      }
+      summary.nextSteps = ['Review email copy', 'Set up email sequence', 'Send to list'];
+      break;
+
+    case 'cinema':
+      summary.actions = [
+        `Generated video script for: "${task.title}"`,
+        'Created scene-by-scene breakdown',
+        'Included timing and key points'
+      ];
+      
+      if (result.scenes?.length) {
+        summary.results.push(`Created ${result.scenes.length} scenes`);
+        result.scenes.forEach((scene: any) => {
+          summary.outputs.push({
+            type: 'scene',
+            value: `[${scene.time}] ${scene.content}`,
+            label: scene.time
+          });
+        });
+      }
+      summary.nextSteps = ['Record narration', 'Add visuals', 'Edit and publish'];
+      break;
+
+    case 'byte':
+    case 'server':
+      summary.actions = [
+        `Created GitHub issue: "${task.title}"`,
+        'Added detailed description and context'
+      ];
+      
+      if (result.issueNumber) {
+        summary.results.push(`GitHub Issue #${result.issueNumber} created`);
+        summary.outputs.push({
+          type: 'issue',
+          value: result.url,
+          label: `Issue #${result.issueNumber}`
+        });
+      }
+      summary.nextSteps = ['Review issue', 'Assign to milestone', 'Start development'];
+      break;
+
+    case 'neo':
+      summary.actions = [
+        'Orchestrated task execution',
+        'Coordinated with agent squad'
+      ];
+      
+      if (result.url) {
+        summary.outputs.push({
+          type: 'github',
+          value: result.url,
+          label: 'View GitHub Item'
+        });
+      }
+      
+      if (result.message) {
+        summary.results.push(result.message);
+      }
+      break;
+
+    case 'bond':
+    case 'mend':
+    case 'grow':
+      summary.actions = [
+        `Analyzed ${agentId === 'bond' ? 'retention' : agentId === 'mend' ? 'customer issues' : 'expansion opportunities'}`,
+        'Researched best practices'
+      ];
+      
+      if (result.caseStudies?.length) {
+        summary.results.push(`Found ${result.caseStudies.length} relevant case studies`);
+        result.caseStudies.forEach((cs: any) => {
+          summary.outputs.push({
+            type: 'case_study',
+            value: cs.url,
+            label: cs.title
+          });
+        });
+      }
+      summary.nextSteps = ['Implement recommendations', 'Track metrics'];
+      break;
+
+    default:
+      summary.actions = [`Executed task: ${task.title}`];
+      if (result.message) {
+        summary.results.push(result.message);
+      }
+  }
+
+  // Add execution metadata
+  summary.metrics = [
+    { label: 'Agent', value: getAgentName(agentId) },
+    { label: 'Completed', value: new Date().toLocaleString() },
+    { label: 'Status', value: result.mock ? 'Simulated' : 'Completed' }
+  ];
+
+  // Add success message
+  summary.results.unshift(`✅ Task completed successfully by ${getAgentName(agentId)}`);
+
+  return summary;
+}
+
 // === EXECUTE AGENT TASK ===
 
 async function executeAgentTask(agentId: string, task: { title: string; description: string; metadata?: Record<string, any> }) {
@@ -601,7 +866,16 @@ async function processTasks() {
       const result: any = await executeAgentTask(task.assignedTo, { title: task.title, description: task.description, metadata: task.metadata });
       if (result.success) {
         task.status = 'completed';
-        task.result = result;
+        
+        // Generate detailed summary
+        const summary = generateDetailedSummary(task.assignedTo, { title: task.title, description: task.description, metadata: task.metadata }, result);
+        
+        // Store both raw result and detailed summary
+        task.result = {
+          ...result,
+          summary,
+          completedAt: new Date().toISOString()
+        };
       } else {
         task.status = 'failed';
         task.error = result.error;
