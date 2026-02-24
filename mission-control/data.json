@@ -1,0 +1,228 @@
+{
+  "tasks": [
+    {
+      "id": "ai-agent-product-01",
+      "title": "AI Agent Product Roadmap",
+      "description": "Create product roadmap for AI Agent services under PP Ventures\n\nDeliverables: Service tiers, pricing, features, delivery timeline",
+      "status": "in_progress",
+      "assignee": "Neo",
+      "createdAt": "2026-02-22T14:20:00Z",
+      "priority": "high",
+      "isAutomated": false
+    },
+    {
+      "id": "ai-agent-website-01",
+      "title": "Add AI Agent Services to Website",
+      "description": "Create new section on PP Ventures website showcasing AI Agent services\n\nIncludes: Service description, pricing tiers, features, demo/request form",
+      "status": "todo",
+      "assignee": "Neo",
+      "createdAt": "2026-02-22T14:20:00Z",
+      "priority": "high",
+      "isAutomated": false
+    },
+    {
+      "id": "ai-agent-pricing-01",
+      "title": "Create Pricing Tiers",
+      "description": "Define pricing for AI Agent services:\n\n📦 Monthly Retainer:\n- Starter: ₹4,999/mo ($60) - SMBs, startups\n- Growth: ₹14,999/mo ($180) - Mid-size companies\n- Enterprise: ₹49,999/mo ($600) - Large companies\n\n🔧 One-time Setup:\n- Starter: ₹9,999 ($120)\n- Growth: ₹24,999 ($300)\n- Enterprise: ₹74,999 ($900)\n\nTarget: Indian market (70-80% cheaper than US agencies)",
+      "status": "completed",
+      "assignee": "Neo",
+      "createdAt": "2026-02-22T14:20:00Z",
+      "priority": "medium",
+      "isAutomated": false
+    },
+    {
+      "id": "maintenance-01",
+      "title": "Daily OpenClaw Maintenance",
+      "description": "Runs daily at 4:00 AM IST - Update OpenClaw, restart gateway, health check\n\nSchedule: 0 4 * * * (Asia/Kolkata)",
+      "status": "scheduled",
+      "assignee": "Neo",
+      "createdAt": "2026-02-21T11:47:00Z",
+      "priority": "high",
+      "schedule": "0 4 * * *",
+      "nextRun": "2026-02-22T04:00:00+05:30",
+      "isAutomated": true
+    },
+    {
+      "id": "backup-01",
+      "title": "Daily Backup",
+      "description": "Runs daily at 4:30 AM IST - Backs up config, workspace, skills to GitHub\n\nSchedule: 30 4 * * * (Asia/Kolkata)",
+      "status": "scheduled",
+      "assignee": "Neo",
+      "createdAt": "2026-02-21T11:53:00Z",
+      "priority": "high",
+      "schedule": "30 4 * * *",
+      "nextRun": "2026-02-22T04:30:00+05:30",
+      "isAutomated": true
+    }
+  ],
+  "content": [
+    {
+      "id": "content-1",
+      "title": "Post about AI Agents",
+      "description": "Post about the rise of autonomous AI agents in 2026",
+      "stage": "drafting",
+      "platform": "linkedin",
+      "createdAt": "2026-02-21",
+      "scheduledAt": "",
+      "publishedAt": "",
+      "content": "AI agents are transforming how we work..."
+    },
+    {
+      "id": "content-2",
+      "title": "PP Ventures Launch",
+      "description": "Announce the launch of PP Ventures website",
+      "stage": "scheduled",
+      "platform": "twitter",
+      "createdAt": "2026-02-20",
+      "scheduledAt": "2026-02-22T10:00:00",
+      "publishedAt": "",
+      "content": "🚀 Excited to announce PP Ventures - Building the future of AI!"
+    },
+    {
+      "id": "content-3",
+      "title": "Mission Control Demo",
+      "description": "Show off Mission Control capabilities",
+      "stage": "idea",
+      "platform": "",
+      "createdAt": "2026-02-21",
+      "scheduledAt": "",
+      "publishedAt": "",
+      "content": ""
+    }
+  ],
+  "activities": [
+    {
+      "id": "backup-20260223-230042",
+      "title": "Daily Backup Run",
+      "description": "Backup completed: completed. Pushed to GitHub",
+      "timestamp": "2026-02-23T23:00:42Z",
+      "type": "backup"
+    },
+    {
+      "id": "backup-20260222-230124",
+      "title": "Daily Backup Run",
+      "description": "Backup completed: completed. Pushed to GitHub",
+      "timestamp": "2026-02-22T23:01:24Z",
+      "type": "backup"
+    },
+    {
+      "id": "ai-agent-project-start",
+      "title": "AI Agent Services Project Started",
+      "description": "Started building AI Agent services for PP Ventures based on Florian Darroman interview with Banu. Using Antfarm to develop website with pricing, features, and service tiers.",
+      "timestamp": "2026-02-22T14:20:00Z",
+      "type": "project"
+    },
+    {
+      "id": "maintenance-setup",
+      "title": "Daily Maintenance Scheduled",
+      "description": "Cron job created: Daily OpenClaw Maintenance - runs at 4:00 AM IST daily",
+      "timestamp": "2026-02-21T11:47:00Z",
+      "type": "maintenance"
+    },
+    {
+      "id": "backup-setup",
+      "title": "Daily Backup Scheduled",
+      "description": "Cron job created: Daily Backup - runs at 4:30 AM IST daily, pushes to GitHub",
+      "timestamp": "2026-02-21T11:53:00Z",
+      "type": "backup"
+    },
+    {
+      "id": "maintenance-1",
+      "title": "Daily Maintenance Run #1",
+      "description": "OpenClaw package, gateway, skills updated. Gateway restarted successfully. Version updated.",
+      "timestamp": "2026-02-22T04:00:00Z",
+      "type": "maintenance"
+    },
+    {
+      "id": "backup-1",
+      "title": "Daily Backup Run #1",
+      "description": "Backup completed. 44 files backed up, secrets sanitized, pushed to GitHub.",
+      "timestamp": "2026-02-22T04:30:00Z",
+      "type": "backup"
+    },
+    {
+      "id": "pp-ventures-launch",
+      "title": "PP Ventures Website Launched",
+      "description": "Website deployed with Home, Blog, Contact pages. Features: AI Innovation, Venture Building, Technical Consulting sections.",
+      "timestamp": "2026-02-21T10:00:00Z",
+      "type": "project"
+    },
+    {
+      "id": "discord-connected",
+      "title": "Discord Connected",
+      "description": "OpenClaw connected to Discord for messaging and notifications.",
+      "timestamp": "2026-02-21T17:15:00Z",
+      "type": "setup"
+    },
+    {
+      "id": "ssh-access",
+      "title": "SSH Access Configured",
+      "description": "Set up SSH access via Tailscale (100.126.91.55) for server management.",
+      "timestamp": "2026-02-21T14:30:00Z",
+      "type": "setup"
+    },
+    {
+      "id": "weather-updated",
+      "title": "Weather Widget Updated",
+      "description": "Weather now shows Bengaluru by default, with Google Places location search, timestamp, and refresh button.",
+      "timestamp": "2026-02-21T18:00:00Z",
+      "type": "improvement"
+    }
+  ],
+  "projects": [
+    {
+      "id": "pp-ventures",
+      "name": "PP Ventures",
+      "description": "Main venture website showcasing AI innovation and technical consulting services",
+      "status": "active",
+      "url": "http://72.62.231.18:8080",
+      "tech": "HTML, CSS, JavaScript",
+      "lastUpdated": "2026-02-21",
+      "details": "Venture building platform for AI projects. Includes blog, contact form, and service listings."
+    }
+  ],
+  "knowledge": [
+    {
+      "id": "kb-001",
+      "title": "PP Ventures Server Down - serve --prefix error",
+      "problem": "PP Ventures returns 000 or PM2 shows 'ARG_UNKNOWN_OPTION: unknown or unexpected option: --prefix'",
+      "solution": "1. SSH: ssh -i ~/.ssh/openclaw_server deva@100.126.91.55\n2. Delete old PM2: pm2 delete ppventures\n3. Start fresh: cd /home/deva/Mission-Control/ppventures && pm2 start npx --name ppventures -- serve -s -l 8080\n4. Verify: curl http://localhost:8080",
+      "category": "server",
+      "lastUpdated": "2026-02-22"
+    },
+    {
+      "id": "kb-002",
+      "title": "X (Twitter) API Posting Failed - Credits Depleted",
+      "problem": "Twitter API returns 402 error: 'Your enrolled account does not have any credits'",
+      "solution": "1. Go to https://developer.twitter.com/en/portal/dashboard\n2. Subscribe to 'Basic' plan ($100/month)\n3. This enables posting via API\n4. Alternative: Post manually on Twitter app",
+      "category": "api",
+      "lastUpdated": "2026-02-22"
+    },
+    {
+      "id": "kb-003",
+      "title": "Mission Control Not Accessible",
+      "problem": "Cannot access http://72.62.231.18:3000",
+      "solution": "1. SSH: ssh -i ~/.ssh/openclaw_server deva@100.126.91.55\n2. Check PM2: pm2 list\n3. If not running: pm2 restart mission-control\n4. Or rebuild: cd /home/deva/Mission-Control/mission-control && npm run build && pm2 restart mission-control",
+      "category": "server",
+      "lastUpdated": "2026-02-22"
+    },
+    {
+      "id": "kb-004",
+      "title": "SSH Connection Refused on Public IP",
+      "problem": "Cannot SSH via 72.62.231.18 but Tailscale works (100.126.91.55)",
+      "solution": "1. SSH via Tailscale: ssh -i ~/.ssh/openclaw_server deva@100.126.91.55\n2. Check SSH config: sudo grep ListenAddress /etc/ssh/sshd_config\n3. Change to 0.0.0.0: sudo sed -i 's/ListenAddress.*/ListenAddress 0.0.0.0/' /etc/ssh/sshd_config\n4. Restart SSH: sudo systemctl restart sshd",
+      "category": "server",
+      "lastUpdated": "2026-02-22"
+    },
+    {
+      "id": "kb-005",
+      "title": "OpenClaw Gateway Not Responding",
+      "problem": "Gateway shows as disconnected or not responding",
+      "solution": "1. Run: openclaw gateway restart\n2. Check status: openclaw gateway status\n3. Check health: openclaw health\n4. View logs: openclaw logs --lines 50",
+      "category": "openclaw",
+      "lastUpdated": "2026-02-22"
+    }
+  ],
+  "memories": [],
+  "chatMessages": []
+}
