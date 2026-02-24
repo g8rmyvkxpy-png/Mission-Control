@@ -25,26 +25,22 @@ interface Agent {
   soul: string;
 }
 
-interface Activity {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  from: string;
-  to?: string;
-  timestamp: number;
-}
-
 interface Task {
   id: string;
   title: string;
   description: string;
   assignedTo?: string;
-  status: 'inbox' | 'assigned' | 'in_progress' | 'review' | 'done';
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  priority: 'low' | 'medium' | 'high';
   createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+  result?: any;
+  error?: string;
+  metadata?: Record<string, any>;
 }
 
-const agents: Agent[] = [
+const allAgents: Agent[] = [
   { id: 'neo', name: 'Neo', role: 'Chief Orchestrator', specialty: 'Coordinating all agents', status: 'active', avatar: '🦅', color: '#f97316', goal: 'Lead squad to $1M', about: 'Your lead AI assistant.', skills: ['Task Delegation', 'Quality Control', 'Strategy'], soul: 'I am the bridge between Deva and my agent squad.' },
   { id: 'atlas', name: 'Atlas', role: 'Sales Lead', specialty: 'Lead Generation', status: 'idle', avatar: '💰', color: '#14b8a6', goal: 'Generate qualified leads', about: 'Sales orchestrator.', skills: ['CRM', 'Cold Outreach'], soul: 'Every lead is a possibility.' },
   { id: 'pulse', name: 'Pulse', role: 'Outbound Scout', specialty: 'Prospecting', status: 'idle', avatar: '🎯', color: '#ec4899', goal: 'Discover new prospects', about: 'Proactive scout.', skills: ['Prospecting', 'Cold Email'], soul: 'Im always hunting.' },
@@ -70,356 +66,354 @@ const agents: Agent[] = [
 ];
 
 const workflowColumns = [
-  { id: 'inbox', label: 'Inbox', color: '#6b7280' },
+  { id: 'pending', label: 'Inbox', color: '#6b7280' },
   { id: 'assigned', label: 'Assigned', color: '#3b82f6' },
-  { id: 'in_progress', label: 'In Progress', color: '#f59e0b' },
+  { id: 'processing', label: 'In Progress', color: '#f59e0b' },
   { id: 'review', label: 'Review', color: '#8b5cf6' },
-  { id: 'done', label: 'Done', color: '#22c55e' }
+  { id: 'completed', label: 'Done', color: '#22c55e' }
 ];
 
-const STORAGE_KEYS = { tasks: 'mc_tasks', activities: 'mc_activities', lastCheckin: 'mc_last_checkin' };
+const modalOverlay: React.CSSProperties = {
+  position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+  background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+  zIndex: 1000
+};
+
+const modalContent: React.CSSProperties = {
+  background: '#1a1a1b', borderRadius: '12px', padding: '20px',
+  maxWidth: '400px', width: '90%'
+};
+
+const inputStyle = (theme: Theme): React.CSSProperties => ({
+  width: '100%', padding: '10px', marginBottom: '10px',
+  background: theme.background, border: `1px solid ${theme.border}`,
+  borderRadius: '6px', color: theme.text, fontSize: '12px'
+});
+
+const buttonStyle = (theme: Theme): React.CSSProperties => ({
+  padding: '8px 16px', background: theme.accent, border: 'none',
+  borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600',
+  cursor: 'pointer'
+});
+
+const cancelButtonStyle = (theme: Theme): React.CSSProperties => ({
+  padding: '8px 16px', background: 'transparent', border: `1px solid ${theme.border}`,
+  borderRadius: '6px', color: theme.textSecondary, fontSize: '12px', cursor: 'pointer'
+});
 
 export default function Team({ theme }: { theme: Theme }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [timeRemaining, setTimeRemaining] = useState<number>(15 * 60);
-
-  // Load from localStorage on mount only
-  useEffect(() => {
-    // Load tasks
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.tasks);
-      if (saved) setTasks(JSON.parse(saved));
-    } catch {}
-    
-    // Load activities
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.activities);
-      if (saved) setActivities(JSON.parse(saved));
-    } catch {}
-    
-    // Load checkin time
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.lastCheckin);
-      if (saved) {
-        const last = parseInt(saved);
-        const elapsed = Math.floor((Date.now() - last) / 1000);
-        const remaining = (15 * 60) - (elapsed % (15 * 60));
-        setTimeRemaining(remaining > 0 ? remaining : 15 * 60);
-      }
-    } catch {}
-  }, []);
-
-  // Save to localStorage when data changes
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEYS.tasks, JSON.stringify(tasks)); } catch {}
-  }, [tasks]);
-
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEYS.activities, JSON.stringify(activities)); } catch {}
-  }, [activities]);
-
-  // Timer - saves start time to localStorage
-  useEffect(() => {
-    // On mount, check if we have a valid start time
-    const saved = localStorage.getItem(STORAGE_KEYS.lastCheckin);
-    if (saved) {
-      const startTime = parseInt(saved);
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      const cycleTime = 15 * 60;
-      const remaining = cycleTime - (elapsed % cycleTime);
-      setTimeRemaining(remaining > 0 ? remaining : cycleTime);
-    }
-    
-    const timer = setInterval(() => {
-      setTimeRemaining(t => {
-        if (t <= 1) {
-          // Timer reset - save new start time
-          try { localStorage.setItem(STORAGE_KEYS.lastCheckin, Date.now().toString()); } catch {}
-          return 15 * 60;
-        }
-        return t - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const formatTime = (seconds: number) => { const m = Math.floor(seconds / 60); const s = seconds % 60; return m + ':' + s.toString().padStart(2, '0'); };
-  const getRecentActivities = () => activities.filter(a => a.timestamp > Date.now() - (15 * 60 * 1000));
-  const getAgent = (id: string) => agents.find(a => a.id === id);
-  const getAgentName = (id: string) => agents.find(a => a.id === id)?.name || id;
-
-  // Modal states
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
   const [showChatModal, setShowChatModal] = useState(false);
-  const [showSuggestModal, setShowSuggestModal] = useState(false);
-  const [showDeliverableModal, setShowDeliverableModal] = useState(false);
-  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
+  const [showAgentModal, setShowAgentModal] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [editTaskTitle, setEditTaskTitle] = useState('');
-  const [editTaskDesc, setEditTaskDesc] = useState('');
-  const [editTaskStatus, setEditTaskStatus] = useState('');
-  const [editTaskAssignee, setEditTaskAssignee] = useState('');
-  const [infoAgent, setInfoAgent] = useState<Agent | null>(null);
-  const [hoveredAgent, setHoveredAgent] = useState<string | null>(null);
-
-  // Form states
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskDesc, setNewTaskDesc] = useState('');
-  const [newTaskAssignee, setNewTaskAssignee] = useState('');
+  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
+  const [newTask, setNewTask] = useState({ title: '', description: '', assignedTo: '', priority: 'medium' });
   const [chatMessage, setChatMessage] = useState('');
   const [chatAgent, setChatAgent] = useState('');
-  const [suggestionText, setSuggestionText] = useState('');
-  const [suggestingAgent, setSuggestingAgent] = useState('');
-  const [deliverableTitle, setDeliverableTitle] = useState('');
-  const [deliverableDesc, setDeliverableDesc] = useState('');
-  const [deliverableAssign, setDeliverableAssign] = useState('');
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
-  const handleCreateTask = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newTaskTitle.trim()) {
-      const newTask: Task = { id: Date.now().toString(), title: newTaskTitle, description: newTaskDesc, assignedTo: newTaskAssignee || undefined, status: newTaskAssignee ? 'assigned' : 'inbox', createdAt: Date.now() };
-      setTasks([...tasks, newTask]);
-      setActivities([...activities, { id: Date.now().toString(), type: 'task', title: newTaskTitle, description: newTaskDesc, from: 'neo', timestamp: Date.now() }]);
-      setNewTaskTitle(''); setNewTaskDesc(''); setNewTaskAssignee(''); setShowNewTaskModal(false);
+  const fetchTasks = async () => {
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    } catch (e) {
+      console.error('Failed to fetch tasks:', e);
     }
   };
 
-  const handleSuggestion = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (suggestionText.trim() && suggestingAgent) {
-      setActivities([...activities, { id: Date.now().toString(), type: 'suggestion', title: 'New Suggestion', description: suggestionText, from: suggestingAgent, timestamp: Date.now() }]);
-      setSuggestionText(''); setSuggestingAgent(''); setShowSuggestModal(false);
-    }
+  useEffect(() => {
+    fetchTasks();
+    const interval = setInterval(fetchTasks, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTasksByStatus = (status: string) => {
+    if (status === 'assigned') return tasks.filter(t => t.assignedTo && t.status === 'pending');
+    if (status === 'review') return tasks.filter(t => t.status === 'failed');
+    return tasks.filter(t => t.status === status);
   };
 
-  const handleDeliverable = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (deliverableTitle.trim()) {
-      setActivities([...activities, { id: Date.now().toString(), type: 'deliverable', title: deliverableTitle, description: deliverableDesc, from: 'neo', to: deliverableAssign || undefined, timestamp: Date.now() }]);
-      if (deliverableAssign) { setTasks([...tasks, { id: Date.now().toString(), title: deliverableTitle, description: deliverableDesc, assignedTo: deliverableAssign, status: 'assigned', createdAt: Date.now() }]); }
-      setDeliverableTitle(''); setDeliverableDesc(''); setDeliverableAssign(''); setShowDeliverableModal(false);
-    }
+  const getAgentStatus = (agentId: string) => {
+    const activeTasks = tasks.filter(t => t.assignedTo === agentId && (t.status === 'processing' || t.status === 'pending'));
+    return activeTasks.length > 0 ? 'working' : 'idle';
   };
 
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (chatMessage.trim() && chatAgent) {
-      setActivities([...activities, { id: Date.now().toString(), type: 'update', title: 'Message', description: chatMessage, from: 'neo', to: chatAgent, timestamp: Date.now() }]);
-      setChatMessage(''); setChatAgent(''); setShowChatModal(false);
-    }
+  const getAgentTasks = (agentId: string) => {
+    return tasks.filter(t => t.assignedTo === agentId).slice(0, 10);
   };
 
-  const recentActivities = getRecentActivities();
+  const handleCreateTask = async () => {
+    if (!newTask.title.trim()) return;
+    setSending(true);
+    try {
+      await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description,
+          assignedTo: newTask.assignedTo || undefined,
+          priority: newTask.priority,
+        }),
+      });
+      setNewTask({ title: '', description: '', assignedTo: '', priority: 'medium' });
+      setShowNewTaskModal(false);
+      fetchTasks();
+    } catch (e) {
+      console.error('Failed to create task:', e);
+    }
+    setSending(false);
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatMessage.trim() || !selectedAgent) return;
+    setSending(true);
+    await fetch('/api/tasks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `[Message to ${selectedAgent.name}]: ${chatMessage}`,
+        description: `Direct message from user`,
+        assignedTo: selectedAgent.id,
+        priority: 'medium',
+        metadata: { isDirectMessage: true },
+      }),
+    });
+    setChatMessage('');
+    setShowChatModal(false);
+    setShowAgentModal(false);
+    setSelectedAgent(null);
+    fetchTasks();
+    setSending(false);
+  };
+
+  const handleBroadcast = async () => {
+    if (!broadcastMessage.trim()) return;
+    setSending(true);
+    console.log(`[Broadcast]: ${broadcastMessage}`);
+    setBroadcastMessage('');
+    setShowBroadcastModal(false);
+    setSending(false);
+  };
+
+  const openAgentModal = (agent: Agent) => {
+    setSelectedAgent(agent);
+    setShowAgentModal(true);
+  };
+
+  const getAgent = (id: string) => allAgents.find(a => a.id === id);
 
   return (
-    <div style={{ padding: '16px', height: 'calc(100vh - 80px)', display: 'flex', flexDirection: 'column', overflow: 'hidden', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexShrink: 0 }}>
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', color: theme.text, marginBottom: '2px' }}>Agent Squad</h2>
-          <p style={{ fontSize: '11px', color: theme.textSecondary }}><span style={{ color: '#22c55e', fontWeight: '600' }}>Goal:</span> $1M revenue | <span style={{ color: theme.accent, marginLeft: '8px' }}>Check-in: {formatTime(timeRemaining)}</span></p>
-        </div>
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <button onClick={() => setShowSuggestModal(true)} style={{ padding: '6px 10px', background: '#8b5cf6', border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Suggest</button>
-          <button onClick={() => setShowDeliverableModal(true)} style={{ padding: '6px 10px', background: '#ef4444', border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Deliverable</button>
-          <button onClick={() => setShowNewTaskModal(true)} style={{ padding: '6px 10px', background: theme.accent, border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>+ Task</button>
-          <button onClick={() => setShowChatModal(true)} style={{ padding: '6px 10px', background: theme.surface, border: '1px solid ' + theme.border, borderRadius: '4px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Chat</button>
-        </div>
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', gap: '12px', overflow: 'hidden', minWidth: 0 }}>
-        <div style={{ width: '200px', flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <h3 style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>Agents ({agents.length})</h3>
-          <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {agents.map(agent => (
-              <div key={agent.id} onMouseEnter={() => setHoveredAgent(agent.id)} onMouseLeave={() => setHoveredAgent(null)} onClick={() => { setInfoAgent(agent); setShowInfoModal(true); }} style={{ background: theme.surface, border: '1px solid ' + (hoveredAgent === agent.id ? theme.accent : theme.border), borderRadius: '6px', padding: '6px', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <div style={{ width: '20px', height: '20px', borderRadius: '4px', background: agent.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px' }}>{agent.avatar}</div>
-                  <span style={{ fontSize: '10px', fontWeight: '600', color: theme.text }}>{agent.name}</span>
-                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: agent.status !== 'idle' ? '#22c55e' : theme.textSecondary }} />
+    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+      {/* LEFT COLUMN - Agents */}
+      <div style={{ width: '260px', borderRight: `1px solid ${theme.border}`, padding: '12px', overflowY: 'auto', background: theme.surface }}>
+        <h2 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Agents ({allAgents.length})</h2>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {allAgents.map(agent => {
+            const status = getAgentStatus(agent.id);
+            const agentTasks = tasks.filter(t => t.assignedTo === agent.id && t.status !== 'completed');
+            
+            return (
+              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: theme.background, borderRadius: '6px', cursor: 'pointer' }}>
+                <div style={{ fontSize: '18px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${agent.color}20`, borderRadius: '4px' }}>
+                  {agent.avatar}
                 </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ width: '260px', flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <h3 style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>Last 15 min ({recentActivities.length})</h3>
-          <div style={{ flex: 1, overflow: 'auto', background: theme.surface, borderRadius: '6px', padding: '8px', border: '1px solid ' + theme.border }}>
-            {recentActivities.length === 0 ? <p style={{ fontSize: '10px', color: theme.textSecondary, textAlign: 'center', padding: '20px' }}>No activity</p> : recentActivities.map(act => (
-              <div key={act.id} style={{ background: theme.background, borderRadius: '4px', padding: '6px', marginBottom: '4px' }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.name}</div>
+                  <div style={{ fontSize: '10px', color: theme.textSecondary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.specialty}</div>
+                </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <span style={{ fontSize: '10px' }}>{getAgent(act.from)?.avatar}</span>
-                  <span style={{ fontSize: '9px', fontWeight: '600', color: theme.text }}>{getAgentName(act.from)}</span>
-                  {act.to && <><span style={{ fontSize: '8px', color: theme.textSecondary }}>→</span><span style={{ fontSize: '10px' }}>{getAgent(act.to)?.avatar}</span></>}
+                  {agentTasks.length > 0 && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '8px', background: '#f59e0b20', color: '#f59e0b' }}>{agentTasks.length}</span>}
+                  <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: status === 'working' ? '#22c55e' : '#6b7280' }} />
+                  <button onClick={(e) => { e.stopPropagation(); openAgentModal(agent); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', color: theme.textSecondary }} title="Info">ℹ️</button>
                 </div>
-                <p style={{ fontSize: '9px', color: theme.text, margin: '2px 0 0' }}>{act.description || act.title}</p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <h3 style={{ fontSize: '12px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>Workflow</h3>
-          <div style={{ flex: 1, display: 'flex', gap: '6px', overflow: 'hidden' }}>
-            {workflowColumns.map(col => {
-              const colTasks = tasks.filter(t => t.status === col.id);
-              return (
-                <div key={col.id} style={{ minWidth: '70px', flex: 1, background: theme.surface, borderRadius: '6px', padding: '6px', border: '1px solid ' + theme.border, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', paddingBottom: '4px', borderBottom: '1px solid ' + theme.border }}>
-                    <span style={{ fontSize: '9px', fontWeight: '600', color: col.color }}>{col.label}</span>
-                    <span style={{ fontSize: '8px', background: theme.background, padding: '0 4px', borderRadius: '6px', color: theme.textSecondary }}>{colTasks.length}</span>
-                  </div>
-                  <div style={{ flex: 1, overflow: 'auto' }}>
-                    {colTasks.length === 0 ? <p style={{ fontSize: '8px', color: theme.textSecondary, textAlign: 'center', padding: '6px' }}>Empty</p> : colTasks.map(task => (
-                      <div key={task.id} onClick={() => { setSelectedTask(task); setEditTaskTitle(task.title); setEditTaskDesc(task.description); setEditTaskStatus(task.status); setEditTaskAssignee(task.assignedTo || ''); setShowTaskModal(true); }} style={{ background: theme.background, borderRadius: '3px', padding: '4px', marginBottom: '3px', cursor: 'pointer' }}>
-                        <p style={{ fontSize: '9px', fontWeight: '500', color: theme.text, margin: 0 }}>{task.title}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+            );
+          })}
         </div>
       </div>
 
-      {showNewTaskModal && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowNewTaskModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '8px', padding: '16px', width: '280px' }} onClick={e => e.stopPropagation()}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>New Task</h3>
-          <form onSubmit={handleCreateTask}>
-            <input value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} placeholder="Title" style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box' }} />
-            <textarea value={newTaskDesc} onChange={(e) => setNewTaskDesc(e.target.value)} placeholder="Description" style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', resize: 'none', height: '40px', marginBottom: '8px', boxSizing: 'border-box' }} />
-            <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '12px', boxSizing: 'border-box' }}>
-              <option value="">-- Assign --</option>
-              {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.avatar} {agent.name}</option>)}
-            </select>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button type="button" onClick={() => setShowNewTaskModal(false)} style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid ' + theme.border, borderRadius: '4px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, padding: '8px', background: theme.accent, border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Create</button>
-            </div>
-          </form>
+      {/* RIGHT COLUMN - Workflow */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: '10px', padding: '12px', borderBottom: `1px solid ${theme.border}`, background: theme.surface }}>
+          <button onClick={() => setShowNewTaskModal(true)} style={{ padding: '8px 16px', background: theme.accent, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>➕ New Task</button>
+          <button onClick={() => setShowChatModal(true)} style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>💬 Chat</button>
+          <button onClick={() => setShowBroadcastModal(true)} style={{ padding: '8px 16px', background: 'transparent', border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}>📢 Broadcast</button>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px', fontSize: '11px' }}>
+            <span style={{ color: '#f59e0b' }}>⏳ {tasks.filter(t => t.status === 'pending').length}</span>
+            <span style={{ color: '#3b82f6' }}>⚙️ {tasks.filter(t => t.status === 'processing').length}</span>
+            <span style={{ color: '#22c55e' }}>✅ {tasks.filter(t => t.status === 'completed').length}</span>
+            <span style={{ color: '#ef4444' }}>❌ {tasks.filter(t => t.status === 'failed').length}</span>
+          </div>
         </div>
-      </div>}
 
-      {showSuggestModal && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowSuggestModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '8px', padding: '16px', width: '300px' }} onClick={e => e.stopPropagation()}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Suggest Idea</h3>
-          <form onSubmit={handleSuggestion}>
-            <select value={suggestingAgent} onChange={(e) => setSuggestingAgent(e.target.value)} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box' }}>
-              <option value="">-- Your Name --</option>
-              {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.avatar} {agent.name}</option>)}
-            </select>
-            <textarea value={suggestionText} onChange={(e) => setSuggestionText(e.target.value)} placeholder="Idea to reach $1M faster..." required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', resize: 'none', height: '80px', marginBottom: '12px', boxSizing: 'border-box' }} />
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button type="button" onClick={() => setShowSuggestModal(false)} style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid ' + theme.border, borderRadius: '4px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, padding: '8px', background: '#8b5cf6', border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Submit</button>
-            </div>
-          </form>
+        <div style={{ flex: 1, display: 'flex', gap: '8px', padding: '10px' }}>
+          {workflowColumns.map(col => {
+            const colTasks = getTasksByStatus(col.id);
+            return (
+              <div key={col.id} style={{ flex: 1, minWidth: '160px', display: 'flex', flexDirection: 'column', background: theme.background, borderRadius: '6px', overflow: 'hidden' }}>
+                <div style={{ padding: '10px 12px', background: theme.surface, borderBottom: `2px solid ${col.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '12px', fontWeight: '600', color: theme.text }}>{col.label}</span>
+                  <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px', background: `${col.color}20`, color: col.color }}>{colTasks.length}</span>
+                </div>
+                <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {colTasks.map(task => {
+                    const agent = task.assignedTo ? getAgent(task.assignedTo) : null;
+                    return (
+                      <div key={task.id} onClick={() => { setSelectedTask(task); setShowTaskModal(true); }} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '6px', padding: '8px', cursor: 'pointer' }}>
+                        <div style={{ fontSize: '11px', fontWeight: '600', color: theme.text, marginBottom: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          {agent && <span style={{ fontSize: '10px', color: agent.color }}>{agent.avatar} {agent.name}</span>}
+                          <span style={{ fontSize: '9px', padding: '1px 4px', borderRadius: '3px', background: task.priority === 'high' ? '#ef444420' : task.priority === 'medium' ? '#f59e0b20' : '#22c55e20', color: task.priority === 'high' ? '#ef4444' : task.priority === 'medium' ? '#f59e0b' : '#22c55e' }}>{task.priority}</span>
+                        </div>
+                        {task.status === 'completed' && <div style={{ fontSize: '9px', color: '#22c55e', marginTop: '4px' }}>✓ Completed</div>}
+                        {task.status === 'failed' && task.error && <div style={{ fontSize: '9px', color: '#ef4444', marginTop: '4px' }}>❌ {task.error}</div>}
+                      </div>
+                    );
+                  })}
+                  {colTasks.length === 0 && <div style={{ textAlign: 'center', padding: '16px', color: theme.textSecondary, fontSize: '11px' }}>No tasks</div>}
+                </div>
+              </div>
+            );
+          })}
         </div>
-      </div>}
+      </div>
 
-      {showDeliverableModal && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowDeliverableModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '8px', padding: '16px', width: '300px' }} onClick={e => e.stopPropagation()}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Create Deliverable</h3>
-          <form onSubmit={handleDeliverable}>
-            <input value={deliverableTitle} onChange={(e) => setDeliverableTitle(e.target.value)} placeholder="Title" required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box' }} />
-            <textarea value={deliverableDesc} onChange={(e) => setDeliverableDesc(e.target.value)} placeholder="Description" style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', resize: 'none', height: '60px', marginBottom: '8px', boxSizing: 'border-box' }} />
-            <select value={deliverableAssign} onChange={(e) => setDeliverableAssign(e.target.value)} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '12px', boxSizing: 'border-box' }}>
-              <option value="">-- Assign to --</option>
-              {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.avatar} {agent.name}</option>)}
-            </select>
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button type="button" onClick={() => setShowDeliverableModal(false)} style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid ' + theme.border, borderRadius: '4px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, padding: '8px', background: '#ef4444', border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Create</button>
+      {/* Agent Modal */}
+      {showAgentModal && selectedAgent && (
+        <div style={modalOverlay} onClick={() => { setShowAgentModal(false); setSelectedAgent(null); }}>
+          <div style={{ ...modalContent, maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+              <div style={{ fontSize: '36px', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${selectedAgent.color}20`, borderRadius: '12px' }}>{selectedAgent.avatar}</div>
+              <div>
+                <h2 style={{ fontSize: '18px', fontWeight: '600', color: theme.text, margin: 0 }}>{selectedAgent.name}</h2>
+                <div style={{ fontSize: '13px', color: theme.textSecondary }}>{selectedAgent.role} - {selectedAgent.specialty}</div>
+                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', background: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e20' : '#6b728020', color: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e' : theme.textSecondary }}>{getAgentStatus(selectedAgent.id) === 'working' ? '🟢 Working' : '⚪ Idle'}</span>
+              </div>
+              <button onClick={() => { setShowAgentModal(false); setSelectedAgent(null); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: theme.textSecondary }}>×</button>
             </div>
-          </form>
-        </div>
-      </div>}
-
-      {showChatModal && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowChatModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '8px', padding: '16px', width: '280px' }} onClick={e => e.stopPropagation()}>
-          <h3 style={{ fontSize: '14px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Send Message</h3>
-          <form onSubmit={handleSendChat}>
-            <select value={chatAgent} onChange={(e) => setChatAgent(e.target.value)} required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginBottom: '8px', boxSizing: 'border-box' }}>
-              <option value="">-- Select --</option>
-              {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.avatar} {agent.name}</option>)}
-            </select>
-            <textarea value={chatMessage} onChange={(e) => setChatMessage(e.target.value)} placeholder="Message..." required style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', resize: 'none', height: '60px', marginBottom: '12px', boxSizing: 'border-box' }} />
-            <div style={{ display: 'flex', gap: '6px' }}>
-              <button type="button" onClick={() => setShowChatModal(false)} style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid ' + theme.border, borderRadius: '4px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Cancel</button>
-              <button type="submit" style={{ flex: 1, padding: '8px', background: theme.accent, border: 'none', borderRadius: '4px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '11px' }}>Send</button>
+            
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '4px', textTransform: 'uppercase' }}>About</div>
+              <div style={{ fontSize: '13px', color: theme.text }}>{selectedAgent.about}</div>
             </div>
-          </form>
-        </div>
-      </div>}
-
-      {showInfoModal && infoAgent && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowInfoModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '12px', padding: '20px', width: '340px', maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-            <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: infoAgent.color + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px' }}>{infoAgent.avatar}</div>
+            
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>Goal</div>
+              <div style={{ fontSize: '13px', color: selectedAgent.color }}>{selectedAgent.goal}</div>
+            </div>
+            
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>Skills</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {selectedAgent.skills.map(skill => <span key={skill} style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', background: theme.background, color: theme.text }}>{skill}</span>)}
+              </div>
+            </div>
+            
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>Tasks ({getAgentTasks(selectedAgent.id).length})</div>
+              <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {getAgentTasks(selectedAgent.id).map(task => (
+                  <div key={task.id} onClick={() => { setSelectedTask(task); setShowTaskModal(true); }} style={{ padding: '8px', background: theme.background, borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ color: task.status === 'completed' ? '#22c55e' : task.status === 'failed' ? '#ef4444' : task.status === 'processing' ? '#3b82f6' : '#f59e0b' }}>{task.status === 'completed' ? '✅' : task.status === 'failed' ? '❌' : task.status === 'processing' ? '⚙️' : '⏳'}</span>
+                      <span style={{ color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                    </div>
+                  </div>
+                ))}
+                {getAgentTasks(selectedAgent.id).length === 0 && <div style={{ fontSize: '11px', color: theme.textSecondary, textAlign: 'center', padding: '8px' }}>No tasks yet</div>}
+              </div>
+            </div>
+            
             <div>
-              <h3 style={{ fontSize: '18px', fontWeight: '700',              color: theme.text, margin: 0 }}>{infoAgent.name}</h3>
-              <p style={{ fontSize: '12px', color: infoAgent.color, margin: '2px 0 0' }}>{infoAgent.role}</p>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>Send Message</div>
+              <textarea placeholder={`Message to ${selectedAgent.name}...`} value={chatMessage} onChange={e => setChatMessage(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', background: theme.background, border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px', minHeight: '60px', resize: 'vertical' }} />
+              <button onClick={handleSendMessage} disabled={!chatMessage.trim() || sending} style={{ width: '100%', padding: '10px', background: theme.accent, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: chatMessage.trim() && !sending ? 'pointer' : 'not-allowed', opacity: chatMessage.trim() && !sending ? 1 : 0.5 }}>{sending ? 'Sending...' : `Send to ${selectedAgent.name}`}</button>
             </div>
           </div>
-          <p style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '2px' }}>GOAL</p>
-          <p style={{ fontSize: '12px', color: theme.text, margin: '0 0 12px' }}>{infoAgent.goal}</p>
-          <p style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '2px' }}>SPECIALTY</p>
-          <p style={{ fontSize: '12px', color: theme.text, margin: '0 0 12px' }}>{infoAgent.specialty}</p>
-          <p style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '4px' }}>SKILLS</p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
-            {infoAgent.skills.map((skill, i) => <span key={i} style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '4px', background: infoAgent.color + '15', color: infoAgent.color }}>{skill}</span>)}
-          </div>
-          <p style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '4px' }}>ABOUT</p>
-          <p style={{ fontSize: '11px', color: theme.text, margin: '0 0 12px', lineHeight: '1.4' }}>{infoAgent.about}</p>
-          <div style={{ background: infoAgent.color + '10', borderLeft: '3px solid ' + infoAgent.color, padding: '10px', borderRadius: '0 6px 6px 0', marginBottom: '12px' }}>
-            <p style={{ fontSize: '9px', color: infoAgent.color, fontWeight: '600', marginBottom: '4px', textTransform: 'uppercase' }}>SOUL</p>
-            <p style={{ fontSize: '11px', color: theme.text, margin: 0, fontStyle: 'italic', lineHeight: '1.5' }}>"{infoAgent.soul}"</p>
-          </div>
-          <button onClick={() => setShowInfoModal(false)} style={{ width: '100%', padding: '10px', background: theme.background, border: '1px solid ' + theme.border, borderRadius: '6px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>Close</button>
         </div>
-      </div>}
+      )}
+
+      {/* New Task Modal */}
+      {showNewTaskModal && (
+        <div style={modalOverlay} onClick={() => setShowNewTaskModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Create New Task</h3>
+            <input type="text" placeholder="Task title" value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} style={inputStyle(theme)} />
+            <textarea placeholder="Description (optional)" value={newTask.description} onChange={e => setNewTask({ ...newTask, description: e.target.value })} style={{ ...inputStyle(theme), minHeight: '60px', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+              <select value={newTask.assignedTo} onChange={e => setNewTask({ ...newTask, assignedTo: e.target.value })} style={{ ...inputStyle(theme), flex: 1 }}>
+                <option value="">Auto-assign</option>
+                {allAgents.map(a => <option key={a.id} value={a.id}>{a.avatar} {a.name}</option>)}
+              </select>
+              <select value={newTask.priority} onChange={e => setNewTask({ ...newTask, priority: e.target.value })} style={{ ...inputStyle(theme), width: '100px' }}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleCreateTask} disabled={sending} style={buttonStyle(theme)}>{sending ? 'Creating...' : 'Create'}</button>
+              <button onClick={() => setShowNewTaskModal(false)} style={cancelButtonStyle(theme)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Modal */}
+      {showChatModal && (
+        <div style={modalOverlay} onClick={() => setShowChatModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Chat with Agent</h3>
+            <select value={chatAgent} onChange={e => setChatAgent(e.target.value)} style={inputStyle(theme)}>
+              <option value="">Select agent...</option>
+              {allAgents.map(a => <option key={a.id} value={a.id}>{a.avatar} {a.name}</option>)}
+            </select>
+            <textarea placeholder="Message..." value={chatMessage} onChange={e => setChatMessage(e.target.value)} style={{ ...inputStyle(theme), minHeight: '80px', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={() => { const agent = allAgents.find(a => a.id === chatAgent); if (agent) { setSelectedAgent(agent); setShowChatModal(false); setShowAgentModal(true); } }} disabled={!chatAgent || !chatMessage.trim()} style={{ ...buttonStyle(theme), opacity: !chatAgent || !chatMessage.trim() ? 0.5 : 1 }}>Send</button>
+              <button onClick={() => setShowChatModal(false)} style={cancelButtonStyle(theme)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Broadcast Modal */}
+      {showBroadcastModal && (
+        <div style={modalOverlay} onClick={() => setShowBroadcastModal(false)}>
+          <div style={modalContent} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Broadcast to All Agents</h3>
+            <textarea placeholder="Broadcast message..." value={broadcastMessage} onChange={e => setBroadcastMessage(e.target.value)} style={{ ...inputStyle(theme), minHeight: '80px', resize: 'vertical' }} />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={handleBroadcast} disabled={sending} style={buttonStyle(theme)}>{sending ? 'Broadcasting...' : 'Broadcast'}</button>
+              <button onClick={() => setShowBroadcastModal(false)} style={cancelButtonStyle(theme)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task Detail Modal */}
-      {showTaskModal && selectedTask && <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200 }} onClick={() => setShowTaskModal(false)}>
-        <div style={{ background: theme.surface, borderRadius: '12px', padding: '20px', width: '360px' }} onClick={e => e.stopPropagation()}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', color: theme.text, marginBottom: '16px' }}>Task Details</h3>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '10px', color: theme.textSecondary }}>TITLE</label>
-            <input value={editTaskTitle} onChange={(e) => setEditTaskTitle(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginTop: '4px', boxSizing: 'border-box' }} />
-          </div>
-          
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '10px', color: theme.textSecondary }}>DESCRIPTION</label>
-            <textarea value={editTaskDesc} onChange={(e) => setEditTaskDesc(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginTop: '4px', height: '60px', resize: 'none', boxSizing: 'border-box' }} />
-          </div>
-          
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: theme.textSecondary }}>STATUS</label>
-              <select value={editTaskStatus} onChange={(e) => setEditTaskStatus(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginTop: '4px', boxSizing: 'border-box' }}>
-                {workflowColumns.map(col => <option key={col.id} value={col.id}>{col.label}</option>)}
-              </select>
+      {showTaskModal && selectedTask && (
+        <div style={modalOverlay} onClick={() => setShowTaskModal(false)}>
+          <div style={{ ...modalContent, maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '8px' }}>{selectedTask.title}</h3>
+            <div style={{ fontSize: '10px', color: theme.textSecondary, marginBottom: '10px' }}>
+              Status: <span style={{ color: selectedTask.status === 'completed' ? '#22c55e' : selectedTask.status === 'failed' ? '#ef4444' : '#3b82f6' }}>{selectedTask.status}</span>
+              {' '} | Priority: {selectedTask.priority} | Created: {new Date(selectedTask.createdAt).toLocaleString()}
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '10px', color: theme.textSecondary }}>ASSIGNED TO</label>
-              <select value={editTaskAssignee} onChange={(e) => setEditTaskAssignee(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid ' + theme.border, background: theme.background, color: theme.text, fontSize: '12px', marginTop: '4px', boxSizing: 'border-box' }}>
-                <option value="">-- Unassigned --</option>
-                {agents.map(agent => <option key={agent.id} value={agent.id}>{agent.avatar} {agent.name}</option>)}
-              </select>
-            </div>
+            {selectedTask.description && <p style={{ fontSize: '12px', color: theme.text, marginBottom: '10px' }}>{selectedTask.description}</p>}
+            {selectedTask.result && <div style={{ background: theme.background, borderRadius: '6px', padding: '10px', maxHeight: '150px', overflow: 'auto', fontSize: '10px', fontFamily: 'monospace' }}><pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: theme.text }}>{JSON.stringify(selectedTask.result, null, 2)}</pre></div>}
+            {selectedTask.error && <div style={{ marginTop: '10px', padding: '10px', background: '#ef444420', borderRadius: '6px', fontSize: '11px', color: '#ef4444' }}>Error: {selectedTask.error}</div>}
+            <button onClick={() => setShowTaskModal(false)} style={{ ...cancelButtonStyle(theme), marginTop: '12px', width: '100%' }}>Close</button>
           </div>
-          
-          <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-            <button onClick={() => { setTasks(tasks.filter(t => t.id !== selectedTask.id)); setShowTaskModal(false); }} style={{ flex: 1, padding: '10px', background: '#ef4444', border: 'none', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>Delete</button>
-            <button onClick={() => { setTasks(tasks.map(t => t.id === selectedTask.id ? { ...t, title: editTaskTitle, description: editTaskDesc, status: editTaskStatus as Task['status'], assignedTo: editTaskAssignee || undefined } : t)); setShowTaskModal(false); }} style={{ flex: 1, padding: '10px', background: theme.accent, border: 'none', borderRadius: '6px', color: '#fff', fontWeight: '600', cursor: 'pointer', fontSize: '12px' }}>Save</button>
-          </div>
-          <button onClick={() => setShowTaskModal(false)} style={{ width: '100%', padding: '10px', background: 'transparent', border: '1px solid ' + theme.border, borderRadius: '6px', color: theme.text, fontWeight: '600', cursor: 'pointer', fontSize: '12px', marginTop: '8px' }}>Cancel</button>
         </div>
-      </div>}
+      )}
     </div>
   );
 }
