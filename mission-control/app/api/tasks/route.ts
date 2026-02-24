@@ -32,27 +32,32 @@ try {
   db = null as any;
 }
 
-// Agent definitions with avatars
+// All 19 agents with avatars
 const AGENTS = [
-  { id: 'atlas', name: 'Atlas', specialty: 'Lead Generation', avatar: '💰' },
-  { id: 'pulse', name: 'Pulse', specialty: 'Prospecting', avatar: '🎯' },
-  { id: 'hunter', name: 'Hunter', specialty: 'Calling', avatar: '🏹' },
-  { id: 'phoenix', name: 'Phoenix', specialty: 'Conversion', avatar: '🔥' },
-  { id: 'scout', name: 'Scout', specialty: 'Analysis', avatar: '🔬' },
-  { id: 'radar', name: 'Radar', specialty: 'SEO', avatar: '🔍' },
-  { id: 'compass', name: 'Compass', specialty: 'Monitoring', avatar: '🧭' },
-  { id: 'trends', name: 'Trends', specialty: 'Trends', avatar: '📈' },
-  { id: 'bond', name: 'Bond', specialty: 'Churn', avatar: '🛡️' },
-  { id: 'mend', name: 'Mend', specialty: 'Resolution', avatar: '🩹' },
-  { id: 'grow', name: 'Grow', specialty: 'Upsell', avatar: '🌱' },
-  { id: 'byte', name: 'Byte', specialty: 'Build', avatar: '💻' },
-  { id: 'pixel', name: 'Pixel', specialty: 'UI', avatar: '🎨' },
-  { id: 'server', name: 'Server', specialty: 'APIs', avatar: '⚙️' },
-  { id: 'auto', name: 'Auto', specialty: 'Automation', avatar: '🤖' },
-  { id: 'ink', name: 'Ink', specialty: 'Blogs', avatar: '✍️' },
-  { id: 'blaze', name: 'Blaze', specialty: 'Twitter', avatar: '📱' },
-  { id: 'cinema', name: 'Cinema', specialty: 'Video', avatar: '🎬' },
-  { id: 'draft', name: 'Draft', specialty: 'Newsletters', avatar: '📧' },
+  // Sales Team
+  { id: 'atlas', name: 'Atlas', specialty: 'Lead Generation', avatar: '💰', team: 'sales' },
+  { id: 'pulse', name: 'Pulse', specialty: 'Prospecting', avatar: '🎯', team: 'sales' },
+  { id: 'hunter', name: 'Hunter', specialty: 'Cold Outreach', avatar: '🏹', team: 'sales' },
+  { id: 'phoenix', name: 'Phoenix', specialty: 'Conversion', avatar: '🔥', team: 'sales' },
+  // Research Team
+  { id: 'scout', name: 'Scout', specialty: 'Analysis', avatar: '🔬', team: 'research' },
+  { id: 'radar', name: 'Radar', specialty: 'SEO', avatar: '🔍', team: 'research' },
+  { id: 'compass', name: 'Compass', specialty: 'Monitoring', avatar: '🧭', team: 'research' },
+  { id: 'trends', name: 'Trends', specialty: 'Market Trends', avatar: '📈', team: 'research' },
+  // Retention Team
+  { id: 'bond', name: 'Bond', specialty: 'Churn Prevention', avatar: '🛡️', team: 'retention' },
+  { id: 'mend', name: 'Mend', specialty: 'Issue Resolution', avatar: '🩹', team: 'retention' },
+  { id: 'grow', name: 'Grow', specialty: 'Upsell', avatar: '🌱', team: 'retention' },
+  // Dev Team
+  { id: 'byte', name: 'Byte', specialty: 'Project Management', avatar: '💻', team: 'dev' },
+  { id: 'pixel', name: 'Pixel', specialty: 'Frontend', avatar: '🎨', team: 'dev' },
+  { id: 'server', name: 'Server', specialty: 'Backend', avatar: '⚙️', team: 'dev' },
+  { id: 'auto', name: 'Auto', specialty: 'Automation', avatar: '🤖', team: 'dev' },
+  // Content Team
+  { id: 'ink', name: 'Ink', specialty: 'Blog Writing', avatar: '✍️', team: 'content' },
+  { id: 'blaze', name: 'Blaze', specialty: 'Social Media', avatar: '📱', team: 'content' },
+  { id: 'cinema', name: 'Cinema', specialty: 'Video', avatar: '🎬', team: 'content' },
+  { id: 'draft', name: 'Draft', specialty: 'Email Campaigns', avatar: '📧', team: 'content' },
 ];
 
 // Task interface
@@ -129,12 +134,10 @@ loadTasks();
 
 // === TOOL IMPLEMENTATIONS ===
 
+// Web Search (Tavily)
 async function searchWeb(query: string, maxResults = 5) {
   const TAVILY_API_KEY = process.env.TAVILY_API_KEY || process.env.NEXT_PUBLIC_TAVILY_API_KEY;
-  
-  if (!TAVILY_API_KEY) {
-    return { success: false, error: 'Tavily API key not configured' };
-  }
+  if (!TAVILY_API_KEY) return { success: false, error: 'Tavily API key not configured' };
   
   try {
     const response = await fetch('https://api.tavily.com/search', {
@@ -149,11 +152,13 @@ async function searchWeb(query: string, maxResults = 5) {
   }
 }
 
+// Twitter/X Web Intent
 async function postTweet(content: string) {
   const tweetUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(content.substring(0, 280))}`;
   return { success: true, url: tweetUrl, content: content.substring(0, 280) };
 }
 
+// GitHub Issue
 async function createGitHubIssue(owner: string, repo: string, title: string, body: string) {
   const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
   if (!GITHUB_TOKEN) return { success: false, error: 'GitHub token not configured' };
@@ -172,6 +177,7 @@ async function createGitHubIssue(owner: string, repo: string, title: string, bod
   }
 }
 
+// OpenAI Content Generation
 async function generateContent(prompt: string, maxTokens = 500) {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
   if (!OPENAI_API_KEY) return { success: false, error: 'OpenAI API key not configured' };
@@ -192,27 +198,139 @@ async function generateContent(prompt: string, maxTokens = 500) {
   }
 }
 
+// Email Send (simulated - would need SMTP config)
+async function sendEmail(to: string, subject: string, body: string) {
+  // For now, return a "mailto" link
+  const mailtoUrl = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  return { success: true, message: 'Email ready', url: mailtoUrl, to, subject };
+}
+
+// Competitor Analysis
+async function analyzeCompetitors(query: string) {
+  const searchResult = await searchWeb(`${query} competitors analysis`, 5);
+  return {
+    success: true,
+    competitors: searchResult.results?.slice(0, 5).map((r: any) => ({
+      name: r.title,
+      url: r.url,
+      summary: r.content?.substring(0, 200)
+    })) || [],
+    note: 'Competitor analysis based on web search'
+  };
+}
+
+// SEO Analysis
+async function analyzeSEO(topic: string) {
+  const searchResult = await searchWeb(`${topic} SEO best practices`, 5);
+  return {
+    success: true,
+    keywords: [topic, `${topic} guide`, `${topic} tips`, `${topic} 2026`],
+    tips: searchResult.results?.slice(0, 3).map((r: any) => r.content?.substring(0, 150)) || [],
+    note: 'SEO recommendations based on top results'
+  };
+}
+
+// Customer Research
+async function researchCustomer(customerInfo: string) {
+  const searchResult = await searchWeb(`${customerInfo} customer case study`, 5);
+  return {
+    success: true,
+    customerInfo,
+    caseStudies: searchResult.results?.slice(0, 3).map((r: any) => ({
+      title: r.title,
+      url: r.url
+    })) || [],
+    note: 'Customer research based on web search'
+  };
+}
+
+// Video Script Generation
+async function generateVideoScript(topic: string, duration = '5 minutes') {
+  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  if (!OPENAI_API_KEY) {
+    return {
+      success: true,
+      mock: true,
+      title: topic,
+      duration,
+      scenes: [
+        { time: '0:00', content: `Opening: Introduction to ${topic}` },
+        { time: '1:00', content: 'Main point 1: Key concepts' },
+        { time: '2:30', content: 'Main point 2: Practical examples' },
+        { time: '4:00', content: 'Conclusion and call to action' },
+      ],
+      note: 'Configure OPENAI_API_KEY for real script generation'
+    };
+  }
+  
+  return await generateContent(`Write a ${duration} video script about: ${topic}. Include intro, main points, and conclusion.`, 1000);
+}
+
+// === EXECUTE AGENT TASK ===
+
 async function executeAgentTask(agentId: string, task: { title: string; description: string; metadata?: Record<string, any> }) {
   console.log(`[Executor] ${agentId}: ${task.title}`);
   
+  const query = task.metadata?.query || task.description || task.title;
+  
   switch (agentId) {
+    // === RESEARCH TEAM ===
     case 'scout':
+      return await searchWeb(query, 5);
     case 'radar':
+      return await analyzeSEO(task.title);
     case 'compass':
+      return await analyzeCompetitors(query);
     case 'trends':
-      return await searchWeb(task.metadata?.query || task.description || task.title);
-    case 'ink':
-      return await generateContent(`Write a blog post about: ${task.title}. ${task.description}`, 1500);
-    case 'blaze':
-      return await postTweet(task.metadata?.content || task.description || task.title);
-    case 'draft':
-      return await generateContent(`Write email about: ${task.title}. ${task.description}`, 500);
+      return await searchWeb(`${query} trends 2026`, 5);
+    
+    // === SALES TEAM ===
+    case 'atlas':
+    case 'pulse':
+      return await searchWeb(`companies ${query} leads`, 5);
+    case 'hunter':
+      return await sendEmail(
+        task.metadata?.to || 'lead@example.com',
+        task.title,
+        task.description
+      );
+    case 'phoenix':
+      return await sendEmail(
+        task.metadata?.to || 'lead@example.com',
+        `Re: ${task.title}`,
+        task.description || 'Following up on our conversation...'
+      );
+    
+    // === RETENTION TEAM ===
+    case 'bond':
+      return await searchWeb(`${query} customer success best practices`, 3);
+    case 'mend':
+      return await researchCustomer(query);
+    case 'grow':
+      return await searchWeb(`${query} upsell opportunities`, 3);
+    
+    // === DEV TEAM ===
     case 'byte':
     case 'server': {
       const repo = task.metadata?.repo || 'g8rmyvkxpy-png/Mission-Control';
       const [owner, repoName] = repo.split('/');
       return await createGitHubIssue(owner, repoName, task.title, task.description);
     }
+    case 'pixel':
+      return { success: true, message: 'Frontend task noted', title: task.title };
+    case 'auto':
+      return { success: true, message: 'Automation task noted', title: task.title };
+    
+    // === CONTENT TEAM ===
+    case 'ink':
+      return await generateContent(`Write a compelling blog post about: ${task.title}. ${task.description}`, 1500);
+    case 'blaze':
+      return await postTweet(task.metadata?.content || task.description || task.title);
+    case 'draft':
+      return await generateContent(`Write a professional email about: ${task.title}. ${task.description}`, 500);
+    case 'cinema':
+      return await generateVideoScript(task.title, task.metadata?.duration || '5 minutes');
+    
     default:
       return { success: false, error: `No handler for agent: ${agentId}` };
   }
