@@ -699,7 +699,7 @@ export default function Home() {
         </nav>
       </div>
       {/* Main Content */}
-      <div style={{ flex: 1, height: 'calc(100vh - 65px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ flex: 1, height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '100vh' }}>
         <header style={{
           padding: '16px 24px',
           borderBottom: `1px solid ${currentTheme.border}`,

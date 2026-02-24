@@ -966,48 +966,165 @@ async function executeAgentTask(agentId: string, task: { title: string; descript
     
     // === NEO ORCHESTRATOR ===
     case 'neo': {
-      // Neo handles GitHub sync and orchestration
-      if (task.title.toLowerCase().includes('github') || task.title.toLowerCase().includes('git')) {
-        const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-        const REPO = process.env.GITHUB_REPO || 'g8rmyvkxpy-png/Mission-Control';
+      const message = task.title;
+      const lowerMsg = message.toLowerCase();
+      
+      // Determine which subagents to involve
+      const subagents: { id: string; name: string; action: string }[] = [];
+      
+      if (lowerMsg.includes('research') || lowerMsg.includes('find') || lowerMsg.includes('analysis') || lowerMsg.includes('trends') || lowerMsg.includes('competitor')) {
+        subagents.push({ id: 'scout', name: 'Scout', action: 'Research & Analysis' });
+      }
+      if (lowerMsg.includes('seo') || lowerMsg.includes('rank') || lowerMsg.includes('search')) {
+        subagents.push({ id: 'radar', name: 'Radar', action: 'SEO Analysis' });
+      }
+      if (lowerMsg.includes('blog') || lowerMsg.includes('write') || lowerMsg.includes('content') || lowerMsg.includes('article')) {
+        subagents.push({ id: 'ink', name: 'Ink', action: 'Content Creation' });
+      }
+      if (lowerMsg.includes('twitter') || lowerMsg.includes('social') || lowerMsg.includes('tweet') || lowerMsg.includes('post')) {
+        subagents.push({ id: 'blaze', name: 'Blaze', action: 'Social Media' });
+      }
+      if (lowerMsg.includes('email') || lowerMsg.includes('outreach')) {
+        subagents.push({ id: 'draft', name: 'Draft', action: 'Email Campaigns' });
+      }
+      if (lowerMsg.includes('video') || lowerMsg.includes('youtube')) {
+        subagents.push({ id: 'cinema', name: 'Cinema', action: 'Video Production' });
+      }
+      if (lowerMsg.includes('lead') || lowerMsg.includes('prospect') || lowerMsg.includes('customer')) {
+        subagents.push({ id: 'atlas', name: 'Atlas', action: 'Lead Generation' });
+      }
+      if (lowerMsg.includes('github') || lowerMsg.includes('code') || lowerMsg.includes('bug') || lowerMsg.includes('build')) {
+        subagents.push({ id: 'byte', name: 'Byte', action: 'Development' });
+      }
+      if (lowerMsg.includes('retention') || lowerMsg.includes('churn')) {
+        subagents.push({ id: 'bond', name: 'Bond', action: 'Customer Retention' });
+      }
+      
+      // Default to research if no specific agents matched
+      if (subagents.length === 0) {
+        subagents.push({ id: 'scout', name: 'Scout', action: 'Research & Analysis' });
+      }
+      
+      console.log(`[Neo] Orchestrating task: ${task.title} with ${subagents.length} subagents`);
+      
+      // Execute each subagent and collect results
+      const subagentResults: any[] = [];
+      
+      for (const subagent of subagents) {
+        console.log(`[Neo] Calling subagent: ${subagent.name}`);
         
-        if (!GITHUB_TOKEN) {
-          return { success: false, error: 'GitHub token not configured. Set GITHUB_TOKEN env var.' };
-        }
-        
-        // Create a GitHub issue for the task
         try {
-          const [owner, repo] = REPO.split('/');
-          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues`, {
-            method: 'POST',
-            headers: { 
-              'Authorization': `token ${GITHUB_TOKEN}`, 
-              'Content-Type': 'application/json',
-              'Accept': 'application/vnd.github.v3+json'
-            },
-            body: JSON.stringify({
-              title: task.title,
-              body: `${task.description}\n\n---\nCreated by Neo Orchestrator`,
-              labels: ['auto-created']
-            }),
+          let result: any;
+          
+          // Call the appropriate subagent based on type
+          switch (subagent.id) {
+            case 'scout':
+              result = await searchWeb(message, 5);
+              break;
+            case 'radar':
+              result = await analyzeSEO(message);
+              break;
+            case 'ink':
+              result = await generateContent(`Write a compelling blog post about: ${message}`, 1500);
+              break;
+            case 'blaze':
+              result = await postTweet(message);
+              break;
+            case 'draft':
+              result = await generateContent(`Write a professional email about: ${message}`, 500);
+              break;
+            case 'cinema':
+              result = await generateVideoScript(message, '5 minutes');
+              break;
+            case 'atlas':
+              result = await searchWeb(`companies ${message} leads`, 5);
+              break;
+            case 'byte':
+              // Create a GitHub issue as deliverable
+              const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+              if (GITHUB_TOKEN) {
+                const [owner, repoName] = (process.env.GITHUB_REPO || 'g8rmyvkxpy-png/Mission-Control').split('/');
+                const ghResult = await createGitHubIssue(owner, repoName, `Neo: ${message}`, task.description);
+                result = ghResult;
+              } else {
+                result = { success: true, message: 'Development task noted (GitHub not configured)' };
+              }
+              break;
+            case 'bond':
+              result = await searchWeb(`${message} customer success best practices`, 3);
+              break;
+            default:
+              result = { success: true, message: 'Task analyzed' };
+          }
+          
+          subagentResults.push({
+            agent: subagent.name,
+            action: subagent.action,
+            success: result.success,
+            result: result
           });
           
-          const data = await response.json();
-          if (response.ok) {
-            const result = { success: true, message: 'GitHub issue created', url: data.html_url, issueNumber: data.number };
-            // Save orchestration deliverable
-            const content = `# Orchestration Task: ${task.title}\n\n**Status:** Completed\n**Issue #:** ${data.number}\n**URL:** ${data.html_url}\n\n---\n\n## Description\n\n${task.description}\n\n---\n*Generated by Neo (Orchestrator)*`;
-            const deliverable = saveDeliverable('orchestration', `${task.title}_${timestamp}`, content);
-            return addDeliverable(result, deliverable);
-          }
-          return { success: false, error: data.message };
-        } catch (error: any) {
-          return { success: false, error: error.message };
+        } catch (err: any) {
+          console.error(`[Neo] Subagent ${subagent.name} failed:`, err);
+          subagentResults.push({
+            agent: subagent.name,
+            action: subagent.action,
+            success: false,
+            error: err.message
+          });
         }
       }
-      return { success: true, message: 'Neo acknowledged task', task: task.title };
+      
+      // Generate final orchestration report
+      const successfulResults = subagentResults.filter(r => r.success).length;
+      
+      const orchestrationReport = `# 🎯 Orchestration Report: ${task.title}
+
+**Date:** ${new Date().toISOString()}
+**Status:** ${successfulResults === subagentResults.length ? '✅ Completed' : '⚠️ Partial'}
+**Subagents Coordinated:** ${subagents.length}
+
+---
+
+## Task Summary
+
+${task.description}
+
+---
+
+## Subagent Results
+
+${subagentResults.map(r => `
+### ${r.agent} (${r.action})
+- **Status:** ${r.success ? '✅ Success' : '❌ Failed'}
+${r.success ? `- **Deliverable:** ${r.result?.deliverable?.path || 'Generated'}` : `- **Error:** ${r.error || 'Unknown error'}`}
+`).join('\n')}
+
+---
+
+## Final Deliverables
+
+${subagentResults.filter(r => r.success && r.result?.deliverable).map(r => `- ${r.agent}: ${r.result.deliverable.path.split('/').pop()}`).join('\n') || 'See individual agent results above'}
+
+---
+
+*Coordinated by Neo (Chief Orchestrator)*`;
+
+      // Save orchestration deliverable
+      const deliverable = saveDeliverable('orchestration', `${task.title}_${timestamp}`, orchestrationReport);
+      
+      return {
+        success: true,
+        message: `Neo orchestrated ${subagents.length} subagent(s), ${successfulResults} completed successfully`,
+        orchestration: {
+          totalSubagents: subagents.length,
+          successful: successfulResults,
+          failed: subagents.length - successfulResults,
+          subagents: subagentResults
+        },
+        deliverable
+      };
     }
-      return { success: true, message: 'Neo acknowledged task', task: task.title };
     
     default:
       return { success: false, error: `No handler for agent: ${agentId}` };

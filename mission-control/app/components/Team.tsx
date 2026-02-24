@@ -195,9 +195,38 @@ export default function Team({ theme }: { theme: Theme }) {
   const handleBroadcast = async () => {
     if (!broadcastMessage.trim()) return;
     setSending(true);
-    console.log(`[Broadcast]: ${broadcastMessage}`);
+    
+    const message = broadcastMessage;
     setBroadcastMessage('');
     setShowBroadcastModal(false);
+    
+    // Create ONE task for Neo - Neo will orchestrate everything
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: message,
+          description: message,
+          assignedTo: 'neo',
+          priority: 'high',
+          metadata: {
+            isOrchestration: true,
+            originalMessage: message
+          }
+        })
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        alert(`📢 Broadcast received!\n\nNeo is now orchestrating the task:\n\n"${message}"\n\nNeo will coordinate all subagents, monitor progress, and deliver the final result.\n\nCheck the workflow to see progress.`);
+      }
+    } catch (err) {
+      console.error('Failed to create orchestration task:', err);
+    }
+    
+    // Refresh tasks
+    fetchTasks();
     setSending(false);
   };
 
@@ -209,9 +238,9 @@ export default function Team({ theme }: { theme: Theme }) {
   const getAgent = (id: string) => allAgents.find(a => a.id === id);
 
   return (
-    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
       {/* LEFT COLUMN - Agents */}
-      <div style={{ width: '260px', borderRight: `1px solid ${theme.border}`, padding: '12px', overflowY: 'auto', background: theme.surface }}>
+      <div style={{ width: '260px', borderRight: `1px solid ${theme.border}`, padding: '12px', overflowY: 'auto', background: theme.surface, flexShrink: 0, height: '100%' }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Agents ({allAgents.length})</h2>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -408,9 +437,101 @@ export default function Team({ theme }: { theme: Theme }) {
               {' '} | Priority: {selectedTask.priority} | Created: {new Date(selectedTask.createdAt).toLocaleString()}
             </div>
             {selectedTask.description && <p style={{ fontSize: '12px', color: theme.text, marginBottom: '10px' }}>{selectedTask.description}</p>}
-            {selectedTask.result && <div style={{ background: theme.background, borderRadius: '6px', padding: '10px', maxHeight: '150px', overflow: 'auto', fontSize: '10px', fontFamily: 'monospace' }}><pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: theme.text }}>{JSON.stringify(selectedTask.result, null, 2)}</pre></div>}
+            
+            {/* Show detailed summary for completed tasks */}
+            {selectedTask.result?.summary && (
+              <div style={{ marginBottom: '12px' }}>
+                {/* Overview */}
+                <div style={{ marginBottom: '10px' }}>
+                  <div style={{ fontSize: '10px', color: '#22c55e', fontWeight: '600', marginBottom: '4px' }}>✓ {selectedTask.result.summary.overview}</div>
+                </div>
+                
+                {/* Actions */}
+                {selectedTask.result.summary.actions?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: theme.textSecondary, marginBottom: '3px', textTransform: 'uppercase' }}>Actions Taken</div>
+                    {selectedTask.result.summary.actions.map((action: string, i: number) => (
+                      <div key={i} style={{ fontSize: '11px', color: theme.text, marginLeft: '8px', marginBottom: '2px' }}>• {action}</div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Results */}
+                {selectedTask.result.summary.results?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: theme.textSecondary, marginBottom: '3px', textTransform: 'uppercase' }}>Results</div>
+                    {selectedTask.result.summary.results.map((r: string, i: number) => (
+                      <div key={i} style={{ fontSize: '11px', color: '#22c55e', marginLeft: '8px', marginBottom: '2px' }}>✓ {r}</div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Outputs/Deliverables */}
+                {selectedTask.result.summary.outputs?.length > 0 && (
+                  <div style={{ marginBottom: '8px' }}>
+                    <div style={{ fontSize: '9px', color: theme.textSecondary, marginBottom: '3px', textTransform: 'uppercase' }}>Deliverables</div>
+                    {selectedTask.result.summary.outputs.slice(0, 4).map((out: any, i: number) => (
+                      <div key={i} style={{ fontSize: '11px', marginLeft: '8px', marginBottom: '3px' }}>
+                        {out.type === 'deliverable' ? (
+                          <span style={{ color: '#3b82f6', cursor: 'pointer' }}>📄 {out.label}</span>
+                        ) : out.type === 'link' || out.type === 'issue' ? (
+                          <a href={out.value} target="_blank" rel="noopener noreferrer" style={{ color: '#3b82f6', textDecoration: 'none' }}>🔗 {out.label}</a>
+                        ) : (
+                          <span style={{ color: theme.text }}>{out.label}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Metrics */}
+                {selectedTask.result.summary.metrics?.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '8px' }}>
+                    {selectedTask.result.summary.metrics.map((m: any, i: number) => (
+                      <span key={i} style={{ fontSize: '9px', padding: '3px 6px', background: theme.background, borderRadius: '3px', color: theme.textSecondary }}>
+                        {m.label}: <strong style={{ color: theme.text }}>{m.value}</strong>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Next Steps */}
+                {selectedTask.result.summary.nextSteps?.length > 0 && (
+                  <div style={{ paddingTop: '8px', borderTop: `1px solid ${theme.border}` }}>
+                    <div style={{ fontSize: '9px', color: '#f59e0b', marginBottom: '3px', textTransform: 'uppercase' }}>Next Steps</div>
+                    {selectedTask.result.summary.nextSteps.map((step: string, i: number) => (
+                      <div key={i} style={{ fontSize: '11px', color: theme.text, marginLeft: '8px' }}>→ {step}</div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Show raw result if no summary (fallback) */}
+            {selectedTask.result && !selectedTask.result.summary && (
+              <div style={{ background: theme.background, borderRadius: '6px', padding: '10px', maxHeight: '150px', overflow: 'auto', fontSize: '10px', fontFamily: 'monospace' }}>
+                <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: theme.text }}>{JSON.stringify(selectedTask.result, null, 2)}</pre>
+              </div>
+            )}
             {selectedTask.error && <div style={{ marginTop: '10px', padding: '10px', background: '#ef444420', borderRadius: '6px', fontSize: '11px', color: '#ef4444' }}>Error: {selectedTask.error}</div>}
-            <button onClick={() => setShowTaskModal(false)} style={{ ...cancelButtonStyle(theme), marginTop: '12px', width: '100%' }}>Close</button>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button 
+                onClick={() => {
+                  if (confirm('Delete this task?')) {
+                    fetch(`/api/tasks?id=${selectedTask.id}`, { method: 'DELETE' })
+                      .then(() => {
+                        setTasks(tasks.filter(t => t.id !== selectedTask.id));
+                        setShowTaskModal(false);
+                      })
+                      .catch(err => console.error('Delete failed:', err));
+                  }
+                }} 
+                style={{ flex: 1, padding: '10px', background: '#ef4444', border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: 'pointer' }}
+              >
+                🗑️ Delete Task
+              </button>
+              <button onClick={() => setShowTaskModal(false)} style={{ ...cancelButtonStyle(theme), flex: 1, width: 'auto' }}>Close</button>
+            </div>
           </div>
         </div>
       )}
