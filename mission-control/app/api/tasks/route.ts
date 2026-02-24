@@ -868,7 +868,9 @@ async function processTasks() {
         task.status = 'completed';
         
         // Generate detailed summary
+        console.log(`[Summary] Generating summary for task ${task.id} by ${task.assignedTo}`);
         const summary = generateDetailedSummary(task.assignedTo, { title: task.title, description: task.description, metadata: task.metadata }, result);
+        console.log(`[Summary] Generated:`, JSON.stringify(summary).substring(0, 200));
         
         // Store both raw result and detailed summary
         task.result = {
