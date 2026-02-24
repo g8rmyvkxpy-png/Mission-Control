@@ -57,6 +57,7 @@ const columns = [
   { id: 'pending', label: 'Pending', color: '#f59e0b' },
   { id: 'in_progress', label: 'Processing', color: '#3b82f6' },
   { id: 'done', label: 'Done', color: '#22c55e' },
+  { id: 'failed', label: 'Failed', color: '#dc2626' },
 ];
 
 export default function TaskBoard({ theme }: { theme: Theme }) {
