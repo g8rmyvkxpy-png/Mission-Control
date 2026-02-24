@@ -209,7 +209,7 @@ export default function Team({ theme }: { theme: Theme }) {
   const getAgent = (id: string) => allAgents.find(a => a.id === id);
 
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
       {/* LEFT COLUMN - Agents */}
       <div style={{ width: '260px', borderRight: `1px solid ${theme.border}`, padding: '12px', overflowY: 'auto', background: theme.surface }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Agents ({allAgents.length})</h2>
@@ -253,16 +253,16 @@ export default function Team({ theme }: { theme: Theme }) {
           </div>
         </div>
 
-        <div style={{ flex: 1, display: 'flex', gap: '8px', padding: '10px' }}>
+        <div style={{ flex: 1, display: 'flex', gap: '8px', padding: '10px', minHeight: 0 }}>
           {workflowColumns.map(col => {
             const colTasks = getTasksByStatus(col.id);
             return (
-              <div key={col.id} style={{ flex: 1, minWidth: '160px', display: 'flex', flexDirection: 'column', background: theme.background, borderRadius: '6px', overflow: 'hidden' }}>
-                <div style={{ padding: '10px 12px', background: theme.surface, borderBottom: `2px solid ${col.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div key={col.id} style={{ flex: 1, minWidth: '160px', display: 'flex', flexDirection: 'column', background: theme.background, borderRadius: '6px', overflow: 'hidden', height: '100%' }}>
+                <div style={{ padding: '10px 12px', background: theme.surface, borderBottom: `2px solid ${col.color}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
                   <span style={{ fontSize: '12px', fontWeight: '600', color: theme.text }}>{col.label}</span>
                   <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '8px', background: `${col.color}20`, color: col.color }}>{colTasks.length}</span>
                 </div>
-                <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{ flex: 1, padding: '8px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', minHeight: 0 }}>
                   {colTasks.map(task => {
                     const agent = task.assignedTo ? getAgent(task.assignedTo) : null;
                     return (

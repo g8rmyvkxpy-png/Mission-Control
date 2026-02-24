@@ -180,8 +180,23 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
     }
   };
 
-  const deleteTask = (taskId: string) => {
-    saveTasks(tasks.filter(t => t.id !== taskId));
+  const deleteTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/tasks?id=${taskId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Remove from local state
+        saveTasks(tasks.filter(t => t.id !== taskId));
+        console.log(`[Task] Deleted: ${taskId}`);
+      } else {
+        console.error('[Task] Delete failed:', data.error);
+      }
+    } catch (error) {
+      console.error('[Task] Delete error:', error);
+    }
   };
 
   const getTasksByStatus = (status: string) => tasks.filter(t => t.status === status);
@@ -202,7 +217,7 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
   };
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
       {/* Queue Status Bar */}
       <div style={{ 
         display: 'flex', 
@@ -480,6 +495,13 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
                                     >
                                       {out.value.substring(0, 50)}...
                                     </a>
+                                  ) : out.type === 'deliverable' ? (
+                                    <span 
+                                      style={{ color: '#22c55e', cursor: 'pointer', fontWeight: '600' }}
+                                      title={out.value}
+                                    >
+                                      📄 Click to view deliverable
+                                    </span>
                                   ) : (
                                     <span style={{ color: currentTheme.text }}>{out.value.substring(0, 80)}</span>
                                   )}

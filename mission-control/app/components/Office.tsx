@@ -118,7 +118,7 @@ export default function Office({ theme }: { theme: Theme }) {
   const workingCount = agents.filter(a => a.status === 'working' || a.status === 'thinking').length;
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h2 style={{ fontSize: '24px', fontWeight: '700', color: theme.text, marginBottom: '8px' }}>Office</h2>

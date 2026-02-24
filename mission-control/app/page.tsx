@@ -330,7 +330,7 @@ export default function Home() {
         );
         
         return (
-          <div style={{ padding: '24px' }}>
+          <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', color: currentTheme.text }}>Dashboard</h2>
             
             {/* Need Attention Section */}
@@ -478,7 +478,7 @@ export default function Home() {
         return <Team theme={currentTheme} />;
       case 'projects':
         return (
-          <div style={{ padding: '24px' }}>
+          <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', color: currentTheme.text }}>Projects</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
               {projects.length > 0 ? (
@@ -556,7 +556,7 @@ export default function Home() {
           x: '𝕏'
         };
         return (
-          <div style={{ padding: '24px' }}>
+          <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h2 style={{ fontSize: '24px', fontWeight: '700', color: currentTheme.text }}>Content Pipeline</h2>
               <button
@@ -649,7 +649,7 @@ export default function Home() {
         return <Office theme={currentTheme} />;
       default:
         return (
-          <div style={{ padding: '24px' }}>
+          <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', color: currentTheme.text }}>
               {tabs.find(t => t.id === activeTab)?.label}
             </h2>
@@ -699,7 +699,7 @@ export default function Home() {
         </nav>
       </div>
       {/* Main Content */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      <div style={{ flex: 1, height: 'calc(100vh - 65px)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <header style={{
           padding: '16px 24px',
           borderBottom: `1px solid ${currentTheme.border}`,

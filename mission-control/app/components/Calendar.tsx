@@ -109,7 +109,7 @@ export default function Calendar({ theme }: { theme: Theme }) {
   const daysInMonth = getDaysInMonth(currentDate);
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <h2 style={{ fontSize: '24px', fontWeight: '700', color: theme.text }}>Calendar</h2>
         <button

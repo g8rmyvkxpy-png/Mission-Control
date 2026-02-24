@@ -1,6 +1,33 @@
 import { NextResponse } from 'next/server';
 import Database from 'better-sqlite3';
 import path from 'path';
+import fs from 'fs';
+
+// === DELIVERABLES SETUP ===
+const DELIVERABLES_DIR = path.join(process.cwd(), 'public', 'deliverables');
+
+// Ensure deliverables directory exists
+function ensureDeliverablesDir() {
+  if (!fs.existsSync(DELIVERABLES_DIR)) {
+    fs.mkdirSync(DELIVERABLES_DIR, { recursive: true });
+  }
+}
+
+// Save a deliverable file and return the path
+function saveDeliverable(type: string, filename: string, content: string): { path: string; url: string } {
+  ensureDeliverablesDir();
+  
+  const safeFilename = filename.replace(/[^a-zA-Z0-9-_]/g, '_').substring(0, 100);
+  const fullPath = path.join(DELIVERABLES_DIR, `${type}_${safeFilename}.md`);
+  
+  fs.writeFileSync(fullPath, content);
+  console.log(`[Deliverable] Saved: ${fullPath}`);
+  
+  return {
+    path: fullPath,
+    url: `/deliverables/${type}_${safeFilename}.md`
+  };
+}
 
 // === DATABASE SETUP ===
 const DB_PATH = path.join(process.cwd(), 'data', 'tasks.db');
@@ -491,6 +518,16 @@ function generateDetailedSummary(
         });
       }
       
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Full Report'
+        });
+        summary.results.push('📄 Report saved to deliverables');
+      }
+      
       if (result.answer) {
         summary.results.push('Generated AI-powered answer summary');
       }
@@ -560,6 +597,16 @@ function generateDetailedSummary(
         }
       }
       
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Full Blog Post'
+        });
+        summary.results.push('📄 Blog post saved to deliverables');
+      }
+      
       summary.outputs.push({
         type: 'platform',
         value: 'PP Ventures Blog',
@@ -582,6 +629,16 @@ function generateDetailedSummary(
         });
       }
       
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Social Post'
+        });
+        summary.results.push('📄 Social post saved to deliverables');
+      }
+      
       if (result.content) {
         summary.results.push('Tweet content prepared (280 char limit)');
       }
@@ -601,6 +658,17 @@ function generateDetailedSummary(
           label: 'Email Preview'
         });
       }
+      
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Email Campaign'
+        });
+        summary.results.push('📄 Email campaign saved to deliverables');
+      }
+      
       summary.nextSteps = ['Review email copy', 'Set up email sequence', 'Send to list'];
       break;
 
@@ -621,6 +689,17 @@ function generateDetailedSummary(
           });
         });
       }
+      
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Full Script'
+        });
+        summary.results.push('📄 Video script saved to deliverables');
+      }
+      
       summary.nextSteps = ['Record narration', 'Add visuals', 'Edit and publish'];
       break;
 
@@ -639,6 +718,17 @@ function generateDetailedSummary(
           label: `Issue #${result.issueNumber}`
         });
       }
+      
+      // Add deliverable if generated
+      if (result.deliverable) {
+        summary.outputs.unshift({
+          type: 'deliverable',
+          value: result.deliverable.path,
+          label: '📄 View Dev Ticket'
+        });
+        summary.results.push('📄 Dev ticket saved to deliverables');
+      }
+      
       summary.nextSteps = ['Review issue', 'Assign to milestone', 'Start development'];
       break;
 
@@ -708,67 +798,174 @@ async function executeAgentTask(agentId: string, task: { title: string; descript
   console.log(`[Executor] ${agentId}: ${task.title}`);
   
   const query = task.metadata?.query || task.description || task.title;
+  const timestamp = Date.now();
+  
+  // Helper to add deliverable to result
+  const addDeliverable = (result: any, deliverable: { path: string; url: string }) => {
+    result.deliverable = deliverable;
+    return result;
+  };
   
   switch (agentId) {
     // === RESEARCH TEAM ===
-    case 'scout':
-      return await searchWeb(query, 5);
-    case 'radar':
-      return await analyzeSEO(task.title);
-    case 'compass':
-      return await analyzeCompetitors(query);
-    case 'trends':
-      return await searchWeb(`${query} trends 2026`, 5);
+    case 'scout': {
+      const result = await searchWeb(query, 5);
+      // Create research report deliverable
+      if (result.success && result.results?.length) {
+        const reportContent = `# Research Report: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n**Query:** ${query}\n\n---\n\n## Summary\n\nFound ${result.results.length} relevant sources on this topic.\n\n## Sources\n\n${result.results.map((r: any, i: number) => `${i + 1}. **${r.title}**\n   - ${r.url}\n   - ${r.content?.substring(0, 200)}...`).join('\n\n')}\n\n---\n*Generated by Scout (Research Agent)*`;
+        const deliverable = saveDeliverable('research', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'radar': {
+      const result = await analyzeSEO(task.title);
+      // Create SEO report deliverable
+      if (result.success) {
+        const reportContent = `# SEO Analysis: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Target Keywords\n\n${result.keywords?.map((k: string) => `- ${k}`).join('\n') || 'N/A'}\n\n## SEO Tips\n\n${result.tips?.map((t: string, i: number) => `${i + 1}. ${t}`).join('\n\n') || 'N/A'}\n\n---\n*Generated by Radar (SEO Agent)*`;
+        const deliverable = saveDeliverable('seo', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'compass': {
+      const result = await analyzeCompetitors(query);
+      // Create competitor analysis deliverable
+      if (result.success && result.competitors?.length) {
+        const reportContent = `# Competitor Analysis: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Competitors Found\n\n${result.competitors.map((c: any, i: number) => `### ${i + 1}. ${c.name}\n${c.summary}\n[Link](${c.url})`).join('\n\n')}\n\n---\n*Generated by Compass (Competitor Analysis Agent)*`;
+        const deliverable = saveDeliverable('competitor', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'trends': {
+      const result = await searchWeb(`${query} trends 2026`, 5);
+      // Create trends report deliverable
+      if (result.success && result.results?.length) {
+        const reportContent = `# Trends Report: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Key Trends\n\n${result.results.map((r: any, i: number) => `### ${r.title}\n${r.content?.substring(0, 300)}...\n\n[Read more](${r.url})`).join('\n\n')}\n\n---\n*Generated by Trends (Market Intelligence Agent)*`;
+        const deliverable = saveDeliverable('trends', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
     
     // === SALES TEAM ===
     case 'atlas':
-    case 'pulse':
-      return await searchWeb(`companies ${query} leads`, 5);
+    case 'pulse': {
+      const result = await searchWeb(`companies ${query} leads`, 5);
+      // Create leads list deliverable
+      if (result.success && result.results?.length) {
+        const reportContent = `# Lead List: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Potential Leads\n\n${result.results.map((r: any, i: number) => `${i + 1}. **${r.title}**\n   - ${r.url}\n   - Relevance: ${Math.round((r.score || 0.5) * 100)}%`).join('\n\n')}\n\n---\n*Generated by ${agentId === 'atlas' ? 'Atlas' : 'Pulse'} (Lead Generation Agent)*`;
+        const deliverable = saveDeliverable('leads', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
     case 'hunter':
-      return await sendEmail(
+    case 'phoenix': {
+      const result = await sendEmail(
         task.metadata?.to || 'lead@example.com',
         task.title,
         task.description
       );
-    case 'phoenix':
-      return await sendEmail(
-        task.metadata?.to || 'lead@example.com',
-        `Re: ${task.title}`,
-        task.description || 'Following up on our conversation...'
-      );
+      // Create email deliverable
+      const emailContent = `# Outreach Email: ${task.title}\n\n**To:** ${task.metadata?.to || 'lead@example.com'}\n**Subject:** ${task.title}\n\n---\n\n${task.description || task.title}\n\n---\n*Generated by ${agentId === 'hunter' ? 'Hunter' : 'Phoenix'} (Outreach Agent)*`;
+      const deliverable = saveDeliverable('email', `${task.title}_${timestamp}`, emailContent);
+      return addDeliverable(result, deliverable);
+    }
     
     // === RETENTION TEAM ===
-    case 'bond':
-      return await searchWeb(`${query} customer success best practices`, 3);
-    case 'mend':
-      return await researchCustomer(query);
-    case 'grow':
-      return await searchWeb(`${query} upsell opportunities`, 3);
+    case 'bond': {
+      const result = await searchWeb(`${query} customer success best practices`, 3);
+      if (result.success && result.results?.length) {
+        const reportContent = `# Retention Strategy: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Best Practices\n\n${result.results.map((r: any, i: number) => `### ${r.title}\n${r.content?.substring(0, 300)}...`).join('\n\n')}\n\n---\n*Generated by Bond (Retention Agent)*`;
+        const deliverable = saveDeliverable('retention', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'mend': {
+      const result = await researchCustomer(query);
+      if (result.success) {
+        const reportContent = `# Customer Issue Analysis: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Customer Info\n\n${result.customerInfo}\n\n## Related Case Studies\n\n${result.caseStudies?.map((c: any, i: number) => `${i + 1}. ${c.title}\n   - ${c.url}`).join('\n\n') || 'None found'}\n\n---\n*Generated by Mend (Issue Resolution Agent)*`;
+        const deliverable = saveDeliverable('issue', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'grow': {
+      const result = await searchWeb(`${query} upsell opportunities`, 3);
+      if (result.success && result.results?.length) {
+        const reportContent = `# Upsell Opportunities: ${task.title}\n\n**Date:** ${new Date().toISOString()}\n\n---\n\n## Opportunities\n\n${result.results.map((r: any, i: number) => `### ${r.title}\n${r.content?.substring(0, 300)}...`).join('\n\n')}\n\n---\n*Generated by Grow (Expansion Agent)*`;
+        const deliverable = saveDeliverable('upsell', `${task.title}_${timestamp}`, reportContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
     
     // === DEV TEAM ===
     case 'byte':
     case 'server': {
       const repo = task.metadata?.repo || 'g8rmyvkxpy-png/Mission-Control';
       const [owner, repoName] = repo.split('/');
-      return await createGitHubIssue(owner, repoName, task.title, task.description);
+      const result = await createGitHubIssue(owner, repoName, task.title, task.description);
+      // Create dev ticket deliverable (already has GitHub URL, but save locally too)
+      const ticketContent = `# Dev Ticket: ${task.title}\n\n**Status:** ${result.success ? 'Created' : 'Failed'}\n**Repository:** ${repo}\n${result.issueNumber ? `**Issue #:** ${result.issueNumber}` : ''}\n${result.url ? `**URL:** ${result.url}` : ''}\n\n---\n\n## Description\n\n${task.description || task.title}\n\n---\n*Generated by ${agentId === 'byte' ? 'Byte' : 'Server'} (Development Agent)*`;
+      const deliverable = saveDeliverable('devticket', `${task.title}_${timestamp}`, ticketContent);
+      return addDeliverable(result, deliverable);
     }
-    case 'pixel':
-      return { success: true, message: 'Frontend task noted', title: task.title };
-    case 'auto':
-      return { success: true, message: 'Automation task noted', title: task.title };
+    case 'pixel': {
+      const result = { success: true, message: 'Frontend task noted', title: task.title };
+      const content = `# Frontend Task: ${task.title}\n\n**Status:** To Do\n\n---\n\n## Requirements\n\n${task.description}\n\n## Notes\n\nFrontend implementation needed.\n\n---\n*Generated by Pixel (Frontend Agent)*`;
+      const deliverable = saveDeliverable('frontend', `${task.title}_${timestamp}`, content);
+      return addDeliverable(result, deliverable);
+    }
+    case 'auto': {
+      const result = { success: true, message: 'Automation task noted', title: task.title };
+      const content = `# Automation Task: ${task.title}\n\n**Status:** To Do\n\n---\n\n## Description\n\n${task.description}\n\n## Notes\n\nAutomation implementation needed (Zapier, Make, etc.)\n\n---\n*Generated by Auto (Automation Agent)*`;
+      const deliverable = saveDeliverable('automation', `${task.title}_${timestamp}`, content);
+      return addDeliverable(result, deliverable);
+    }
     
     // === CONTENT TEAM ===
-    case 'ink':
-      return await generateContent(`Write a compelling blog post about: ${task.title}. ${task.description}`, 1500);
-    case 'blaze':
-      return await postTweet(task.metadata?.content || task.description || task.title);
-    case 'draft':
-      return await generateContent(`Write a professional email about: ${task.title}. ${task.description}`, 500);
-    case 'cinema':
-      return await generateVideoScript(task.title, task.metadata?.duration || '5 minutes');
+    case 'ink': {
+      const result = await generateContent(`Write a compelling blog post about: ${task.title}. ${task.description}`, 1500);
+      // Create blog post deliverable
+      if (result.success && result.content) {
+        const deliverable = saveDeliverable('blogpost', `${task.title}_${timestamp}`, result.content);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'blaze': {
+      const result = await postTweet(task.metadata?.content || task.description || task.title);
+      // Create social post deliverable
+      const content = `# Social Post: ${task.title}\n\n**Platform:** Twitter/X\n\n---\n\n${task.metadata?.content || task.description || task.title}\n\n---\n*Generated by Blaze (Social Media Agent)*`;
+      const deliverable = saveDeliverable('social', `${task.title}_${timestamp}`, content);
+      return addDeliverable(result, deliverable);
+    }
+    case 'draft': {
+      const result = await generateContent(`Write a professional email about: ${task.title}. ${task.description}`, 500);
+      // Create email campaign deliverable
+      if (result.success && result.content) {
+        const deliverable = saveDeliverable('emailcampaign', `${task.title}_${timestamp}`, result.content);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
+    case 'cinema': {
+      const result: any = await generateVideoScript(task.title, task.metadata?.duration || '5 minutes');
+      // Create video script deliverable
+      if (result.success) {
+        const scriptContent = `# Video Script: ${task.title}\n\n**Duration:** ${result.duration || 'N/A'}\n\n---\n\n${result.scenes?.map((s: any) => `## ${s.time}\n${s.content}`).join('\n\n') || result.content}\n\n---\n*Generated by Cinema (Video Production Agent)*`;
+        const deliverable = saveDeliverable('videoscript', `${task.title}_${timestamp}`, scriptContent);
+        return addDeliverable(result, deliverable);
+      }
+      return result;
+    }
     
     // === NEO ORCHESTRATOR ===
-    case 'neo':
+    case 'neo': {
       // Neo handles GitHub sync and orchestration
       if (task.title.toLowerCase().includes('github') || task.title.toLowerCase().includes('git')) {
         const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
@@ -797,13 +994,19 @@ async function executeAgentTask(agentId: string, task: { title: string; descript
           
           const data = await response.json();
           if (response.ok) {
-            return { success: true, message: 'GitHub issue created', url: data.html_url, issueNumber: data.number };
+            const result = { success: true, message: 'GitHub issue created', url: data.html_url, issueNumber: data.number };
+            // Save orchestration deliverable
+            const content = `# Orchestration Task: ${task.title}\n\n**Status:** Completed\n**Issue #:** ${data.number}\n**URL:** ${data.html_url}\n\n---\n\n## Description\n\n${task.description}\n\n---\n*Generated by Neo (Orchestrator)*`;
+            const deliverable = saveDeliverable('orchestration', `${task.title}_${timestamp}`, content);
+            return addDeliverable(result, deliverable);
           }
           return { success: false, error: data.message };
         } catch (error: any) {
           return { success: false, error: error.message };
         }
       }
+      return { success: true, message: 'Neo acknowledged task', task: task.title };
+    }
       return { success: true, message: 'Neo acknowledged task', task: task.title };
     
     default:
@@ -987,11 +1190,42 @@ export async function PATCH(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    
+    // Delete a specific task by ID
+    const taskId = searchParams.get('id');
+    if (taskId) {
+      const taskIndex = tasks.findIndex(t => t.id === taskId);
+      if (taskIndex === -1) {
+        return NextResponse.json({ success: false, error: 'Task not found' });
+      }
+      
+      const deletedTask = tasks[taskIndex];
+      tasks.splice(taskIndex, 1);
+      
+      // Also delete from database
+      if (db) {
+        db.prepare('DELETE FROM tasks WHERE id = ?').run(taskId);
+      }
+      
+      // Delete associated deliverable if exists
+      if (deletedTask.result?.deliverable?.path) {
+        const deliverablePath = deletedTask.result.deliverable.path;
+        if (fs.existsSync(deliverablePath)) {
+          fs.unlinkSync(deliverablePath);
+          console.log(`[Deliverable] Deleted: ${deliverablePath}`);
+        }
+      }
+      
+      return NextResponse.json({ success: true, deleted: deletedTask });
+    }
+    
+    // Clear all completed/failed tasks
     if (searchParams.get('clear') === 'history') {
       tasks = tasks.filter(t => t.status === 'pending' || t.status === 'processing');
       if (db) db.prepare("DELETE FROM tasks WHERE status IN ('completed', 'failed')").run();
       return NextResponse.json({ success: true });
     }
+    
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
