@@ -208,6 +208,49 @@ Think of it like a human reviewing their journal and updating their mental model
 
 The goal: Be helpful without being annoying. Check in a few times a day, do useful background work, but respect quiet time.
 
+## Task Validation Process
+
+### Before Moving Task to DONE
+
+**ALWAYS validate before marking complete. Never accept subagent completion without verification.**
+
+#### 1. Define Deliverables Upfront
+Every task MUST have explicit deliverables:
+```
+Deliverables:
+- [ ] Item 1 - description
+- [ ] Item 2 - description
+```
+
+#### 2. Validation Checklist
+
+**For Website/UI Changes:**
+- [ ] All pages load without 404 (test each route)
+- [ ] Links work (navigation + cross-links)
+- [ ] HTTPS working (if applicable)
+- [ ] Mobile responsive
+
+**For Features:**
+- [ ] Feature works as described
+- [ ] Tests written and passing
+- [ ] Code committed to repo
+
+#### 3. Validation Commands
+```bash
+# Test routes return 200
+curl -s -o /dev/null -w "%{http_code}" http://site.com/page
+```
+
+#### 4. Never Accept
+- ❌ Mockup-only changes (must be functional)
+- ❌ Incomplete features
+- ❌ Untested code
+- ❌ Tasks moved by subagents without Neo's verification
+
+**Rule:** If it's not validated by Neo, it's not done.
+
+---
+
 ## Make It Yours
 
 This is a starting point. Add your own conventions, style, and rules as you figure out what works.
