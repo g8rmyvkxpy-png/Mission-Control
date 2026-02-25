@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Agents - PPVentures</title>
+  <meta name="description" content="Custom AI agents for your business. 24/7 autonomous operation at affordable prices.">
+  <meta property="og:title" content="AI Agents - PPVentures">
+  <meta property="og:description" content="AI agents that work 24/7 so you don't have to">
+  <meta property="og:type" content="website">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0b; color: #fafafa; line-height: 1.6; }
+    
+    nav { display: flex; justify-content: space-between; align-items: center; padding: 20px 40px; position: fixed; width: 100%; top: 0; background: rgba(10,10,11,0.9); backdrop-filter: blur(10px); z-index: 100; border-bottom: 1px solid #27272a; }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a { color: #a1a1aa; text-decoration: none; font-weight: 500; transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: #f97316; }
+    .logo { font-size: 20px; font-weight: 700; color: #fff; }
+    .logo span { color: #f97316; }
+    
+    .hero { padding: 160px 40px 80px; text-align: center; background: radial-gradient(ellipse at top, #1a1a1d 0%, #0a0a0b 70%); }
+    .hero h1 { font-size: 56px; font-weight: 800; margin-bottom: 20px; line-height: 1.1; }
+    .hero h1 span { color: #f97316; }
+    .hero p { color: #a1a1aa; font-size: 20px; max-width: 700px; margin: 0 auto 32px; }
+    .hero-stats { display: flex; justify-content: center; gap: 60px; margin-top: 48px; }
+    .stat { text-align: center; }
+    .stat-value { font-size: 40px; font-weight: 800; color: #f97316; }
+    .stat-label { color: #71717a; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; }
+    
+    .pricing { max-width: 1100px; margin: 0 auto; padding: 60px 40px; }
+    .pricing h2 { text-align: center; font-size: 40px; margin-bottom: 48px; }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .pricing-card { background: #111113; border: 2px solid #27272a; border-radius: 20px; padding: 40px 32px; text-align: center; transition: all 0.3s; }
+    .pricing-card:hover { border-color: #f97316; transform: translateY(-8px); }
+    .pricing-card.featured { border-color: #f97316; position: relative; }
+    .pricing-card.featured::before { content: "Most Popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: #f97316; color: #fff; padding: 4px 16px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .pricing-tier { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #71717a; margin-bottom: 8px; }
+    .pricing-card h3 { font-size: 24px; margin-bottom: 16px; }
+    .pricing-price { font-size: 42px; font-weight: 800; color: #f97316; margin-bottom: 8px; }
+    .pricing-price span { font-size: 16px; color: #71717a; font-weight: normal; }
+    .pricing-desc { color: #a1a1aa; font-size: 14px; margin-bottom: 24px; }
+    .pricing-features { list-style: none; text-align: left; margin-bottom: 32px; }
+    .pricing-features li { padding: 10px 0; color: #d4d4d8; display: flex; align-items: center; gap: 12px; font-size: 14px; }
+    .pricing-features li::before { content: "✓"; color: #f97316; font-weight: bold; }
+    .pricing-card .btn { display: block; width: 100%; padding: 16px; border-radius: 8px; font-weight: 600; text-decoration: none; transition: all 0.2s; background: #f97316; color: #fff; }
+    .pricing-card .btn:hover { background: #ea580c; }
+    .pricing-card.featured .btn { background: #f97316; }
+    
+    .use-cases { background: #111113; padding: 80px 40px; }
+    .use-cases h2 { text-align: center; font-size: 40px; margin-bottom: 48px; }
+    .cases-grid { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+    .case-card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 32px; }
+    .case-icon { font-size: 36px; margin-bottom: 16px; }
+    .case-card h3 { font-size: 20px; margin-bottom: 12px; }
+    .case-card p { color: #a1a1aa; font-size: 14px; }
+    
+    .comparison { padding: 80px 40px; max-width: 900px; margin: 0 auto; }
+    .comparison h2 { text-align: center; font-size: 40px; margin-bottom: 48px; }
+    .comp-table { width: 100%; border-collapse: collapse; }
+    .comp-table th, .comp-table td { padding: 16px; text-align: left; border-bottom: 1px solid #27272a; }
+    .comp-table th { color: #71717a; font-weight: 500; font-size: 14px; text-transform: uppercase; }
+    .comp-table td { color: #d4d4d8; }
+    .comp-table .check { color: #f97316; }
+    .comp-table .cross { color: #71717a; }
+    
+    .cta { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 80px 40px; text-align: center; }
+    .cta h2 { font-size: 40px; margin-bottom: 16px; color: #fff; }
+    .cta p { color: rgba(255,255,255,0.9); font-size: 18px; margin-bottom: 32px; }
+    .cta .btn { display: inline-block; padding: 18px 48px; border-radius: 8px; font-weight: 600; text-decoration: none; background: #fff; color: #f97316; font-size: 18px; }
+    .cta .btn:hover { transform: translateY(-2px); }
+    
+    footer { padding: 40px; text-align: center; color: #52525b; border-top: 1px solid #27272a; }
+    footer a { color: #a1a1aa; text-decoration: none; }
+    footer a:hover { color: #f97316; }
+    
+    @media (max-width: 900px) {
+      .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; }
+      .cases-grid { grid-template-columns: 1fr; }
+      .hero-stats { flex-wrap: wrap; gap: 32px; }
+      nav { padding: 16px 20px; }
+      .hero { padding: 140px 20px 60px; }
+      .hero h1 { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">PP<span>Ventures</span></div>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="/services" class="active">Services</a>
+      <a href="/blog">Blog</a>
+      <a href="/contact">Contact</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>AI Agents That<br><span>Never Sleep</span></h1>
+    <p>Autonomous AI agents handling customer support, data processing, lead qualification, and more. 70% cheaper than hiring human staff.</p>
+    <div class="hero-stats">
+      <div class="stat">
+        <div class="stat-value">24/7</div>
+        <div class="stat-label">Availability</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">70%</div>
+        <div class="stat-label">Cost Savings</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">10x</div>
+        <div class="stat-label">Faster</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">99.9%</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pricing">
+    <h2>Simple, Transparent Pricing</h2>
+    <div class="pricing-grid">
+      <div class="pricing-card">
+        <div class="pricing-tier">Starter</div>
+        <h3>For Small Business</h3>
+        <div class="pricing-price">₹4,999<span>/mo</span></div>
+        <p class="pricing-desc">$60 USD equivalent - Perfect for startups & SMBs</p>
+        <ul class="pricing-features">
+          <li>1 AI Agent</li>
+          <li>Up to 500 conversations/mo</li>
+          <li>Email & chat support</li>
+          <li>Basic integrations</li>
+          <li>Weekly performance reports</li>
+        </ul>
+        <a href="/contact" class="btn">Get Started</a>
+      </div>
+      
+      <div class="pricing-card featured">
+        <div class="pricing-tier">Growth</div>
+        <h3>For Growing Teams</h3>
+        <div class="pricing-price">₹14,999<span>/mo</span></div>
+        <p class="pricing-desc">$180 USD equivalent - Most popular choice</p>
+        <ul class="pricing-features">
+          <li>3 AI Agents</li>
+          <li>Up to 2,000 conversations/mo</li>
+          <li>Priority support</li>
+          <li>Advanced integrations</li>
+          <li>CRM & automation tools</li>
+          <li>Daily performance reports</li>
+        </ul>
+        <a href="/contact" class="btn">Get Started</a>
+      </div>
+      
+      <div class="pricing-card">
+        <div class="pricing-tier">Enterprise</div>
+        <h3>For Large Companies</h3>
+        <div class="pricing-price">₹49,999<span>/mo</span></div>
+        <p class="pricing-desc">$600 USD equivalent - Full power</p>
+        <ul class="pricing-features">
+          <li>Unlimited AI Agents</li>
+          <li>Unlimited conversations</li>
+          <li>Dedicated support</li>
+          <li>Custom integrations</li>
+          <li>Advanced analytics</li>
+          <li>Real-time dashboards</li>
+          <li>SLA guarantee</li>
+        </ul>
+        <a href="/contact" class="btn">Contact Sales</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="use-cases">
+    <h2>What AI Agents Can Do</h2>
+    <div class="cases-grid">
+      <div class="case-card">
+        <div class="case-icon">💬</div>
+        <h3>Customer Support</h3>
+        <p>Handle customer inquiries 24/7, answer FAQs, resolve common issues, and escalate complex cases to humans.</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon">🎯</div>
+        <h3>Lead Qualification</h3>
+        <p>Engage website visitors, qualify leads, schedule appointments, and nurture prospects through the funnel.</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon">📊</div>
+        <h3>Data Processing</h3>
+        <p>Extract, clean, and organize data from emails, forms, and documents automatically.</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon">📧</div>
+        <h3>Email Management</h3>
+        <p>Sort, categorize, and respond to emails. Route important messages to the right people.</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon">📝</div>
+        <h3>Report Generation</h3>
+        <p>Automatically generate daily reports, summaries, and insights from your business data.</p>
+      </div>
+      <div class="case-card">
+        <div class="case-icon">🔄</div>
+        <h3>Process Automation</h3>
+        <p>Automate repetitive workflows like onboarding, invoicing, and follow-ups.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="comparison">
+    <h2>vs Traditional Alternatives</h2>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Feature</th>
+          <th>AI Agents</th>
+          <th>Hiring Staff</th>
+          <th>Offshore Team</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>24/7 Availability</td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td>Instant Scalability</td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td>~2 weeks</td>
+        </tr>
+        <tr>
+          <td>No Training Required</td>
+          <td class="check">✓</td>
+          <td class="cross">✗</td>
+          <td class="cross">✗</td>
+        </tr>
+        <tr>
+          <td>Consistent Quality</td>
+          <td class="check">✓</td>
+          <td>varies</td>
+          <td>varies</td>
+        </tr>
+        <tr>
+          <td>Monthly Cost</td>
+          <td>₹5K-50K</td>
+          <td>₹30K-80K</td>
+          <td>₹20K-50K</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="cta">
+    <h2>Ready to Automate?</h2>
+    <p>Start with a free consultation. We'll analyze your needs and recommend the best solution.</p>
+    <a href="/contact" class="btn">Book Free Call</a>
+  </section>
+
+  <footer>
+    <p>&copy; 2026 PPVentures. Building the autonomous future.</p>
+    <p style="margin-top: 8px;">
+      <a href="/">Home</a> &middot; 
+      <a href="/services">Services</a> &middot; 
+      <a href="/blog">Blog</a> &middot; 
+      <a href="/contact">Contact</a>
+    </p>
+  </footer>
+</body>
+</html>
