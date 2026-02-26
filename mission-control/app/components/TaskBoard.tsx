@@ -6,7 +6,8 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  status: 'todo' | 'pending' | 'in_progress' | 'processing' | 'completed' | 'failed' | 'done';
+  status: 'pending' | 'assigned' | 'processing' | 'review' | 'done' | 'failed';
+  phase?: string;
   assignee: string;
   assignedTo?: string;
   priority: 'low' | 'medium' | 'high';
@@ -53,11 +54,12 @@ const lightTheme: Theme = {
 };
 
 const columns = [
-  { id: 'todo', label: 'To Do', color: '#ef4444' },
-  { id: 'pending', label: 'Pending', color: '#f59e0b' },
-  { id: 'in_progress', label: 'Processing', color: '#3b82f6' },
-  { id: 'done', label: 'Done', color: '#22c55e' },
-  { id: 'failed', label: 'Failed', color: '#dc2626' },
+  { id: 'pending', label: '📥 Inbox', color: '#6b7280' },
+  { id: 'assigned', label: '📋 Assigned', color: '#8b5cf6' },
+  { id: 'processing', label: '⚡ In Progress', color: '#3b82f6' },
+  { id: 'review', label: '⚠️ Review', color: '#f59e0b' },
+  { id: 'done', label: '✅ Done', color: '#22c55e' },
+  { id: 'failed', label: '❌ Failed', color: '#dc2626' },
 ];
 
 export default function TaskBoard({ theme }: { theme: Theme }) {
@@ -86,12 +88,13 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
       const res = await fetch('/api/tasks');
       const data = await res.json();
       
-      // Map task statuses
+      // Map task statuses - handle both new and legacy statuses
       const mappedTasks = (data.tasks || []).map((t: any) => ({
         ...t,
-        status: t.status === 'processing' ? 'in_progress' : 
-                t.status === 'completed' ? 'done' : 
-                t.status === 'pending' ? 'pending' : 'todo',
+        // Legacy status mapping for backward compatibility
+        status: t.status === 'completed' ? 'done' : 
+                t.status === 'in_progress' ? 'processing' :
+                t.status || 'pending',
         createdAt: t.createdAt
       }));
       
@@ -155,15 +158,17 @@ export default function TaskBoard({ theme }: { theme: Theme }) {
   };
 
   const moveTask = async (taskId: string, newStatus: string) => {
-    // Map UI status back to queue status
+    // Map UI column to task status
     const statusMap: Record<string, string> = {
-      'todo': 'pending',
       'pending': 'pending',
-      'in_progress': 'processing',
-      'done': 'completed'
+      'assigned': 'assigned',
+      'processing': 'processing',
+      'review': 'review',
+      'done': 'done',
+      'failed': 'failed'
     };
     
-    const queueStatus = statusMap[newStatus];
+    const queueStatus = statusMap[newStatus] || newStatus;
     
     if (queueStatus === 'pending') {
       // Retry failed task

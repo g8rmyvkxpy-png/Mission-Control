@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import TaskBoard from './components/TaskBoard';
+
 import Calendar from './components/Calendar';
 import Memory from './components/Memory';
 import Team from './components/Team';
@@ -122,17 +122,28 @@ export default function Home() {
     }
   }, []);
 
+  // Clock - update every second
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleTabChange = (tabId: string) => {
     setActiveTab(tabId);
     localStorage.setItem('mc_active_tab', tabId);
   };
   const [weather, setWeather] = useState<any>(null);
   const [weatherUpdated, setWeatherUpdated] = useState<string>('');
+  const [currentTime, setCurrentTime] = useState<string>('');
   const [location, setLocation] = useState<{name: string, lat: number, lng: number}>({ name: 'Bengaluru', lat: 12.97, lng: 77.59 });
   const [locationSearch, setLocationSearch] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showLocationSearch, setShowLocationSearch] = useState(false);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [content, setContent] = useState<any[]>([]);
@@ -207,7 +218,6 @@ export default function Home() {
     try {
       const res = await fetch('/api/data');
       const data = await res.json();
-      setTasks(data.tasks || []);
       setActivities(data.activities || []);
       setProjects(data.projects || []);
       setContent(data.content || []);
@@ -311,7 +321,6 @@ export default function Home() {
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
-    { id: 'tasks', label: 'Tasks', icon: '✅' },
     { id: 'content', label: 'Content', icon: '📝' },
     { id: 'memory', label: '🧠 Memory', icon: '🧠' },
     { id: 'calendar', label: 'Calendar', icon: '📅' },
@@ -323,121 +332,13 @@ export default function Home() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        // Filter tasks needing attention (only show failed automated tasks or overdue items)
-        const needAttention = tasks.filter((t: any) => 
-          (t.isAutomated && t.status === 'failed') || 
-          (!t.isAutomated && t.priority === 'high' && t.status === 'todo')
-        );
-        
         return (
           <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '24px', color: currentTheme.text }}>Dashboard</h2>
             
-            {/* Need Attention Section */}
-            {needAttention.length > 0 && (
-              <div style={{ 
-                background: '#ff4d4d20', 
-                border: '1px solid #ff4d4d', 
-                borderRadius: '12px', 
-                padding: '20px', 
-                marginBottom: '24px' 
-              }}>
-                <h3 style={{ color: '#ff4d4d', fontSize: '16px', fontWeight: '600', marginBottom: '12px' }}>
-                  ⚠️ Need Attention ({needAttention.length})
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {needAttention.map((task: any) => (
-                    <div 
-                      key={task.id} 
-                      onClick={() => handleTabChange('tasks')}
-                      style={{ 
-                        padding: '12px', 
-                        background: currentTheme.background, 
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <p style={{ color: currentTheme.text, fontSize: '14px', fontWeight: '500' }}>{task.title}</p>
-                      <p style={{ color: currentTheme.textSecondary, fontSize: '12px' }}>{task.description?.split('\n')[0]}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
             
-            {/* Today's Tasks Section */}
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <h3 
-                  onClick={() => handleTabChange('tasks')}
-                  style={{ color: currentTheme.text, fontSize: '18px', fontWeight: '600', cursor: 'pointer' }}
-                >
-                  📋 Today's Tasks
-                </h3>
-                <span style={{ color: currentTheme.textSecondary, fontSize: '12px' }}>Click to view all →</span>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
-                {tasks.length > 0 ? tasks.slice(0, 4).map((task: any) => (
-                  <div 
-                    key={task.id} 
-                    style={{ 
-                      padding: '16px', 
-                      background: currentTheme.surface, 
-                      border: `1px solid ${currentTheme.border}`, 
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                    }}
-                    onClick={() => handleTabChange('tasks')}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <p style={{ color: currentTheme.text, fontSize: '14px', fontWeight: '500' }}>{task.title}</p>
-                      <span style={{ 
-                        padding: '2px 8px', 
-                        borderRadius: '4px', 
-                        fontSize: '10px',
-                        background: task.status === 'done' ? '#22c55e20' : task.status === 'in_progress' ? '#f59e0b20' : task.status === 'failed' ? '#ef444420' : task.isAutomated ? '#8b5cf620' : '#3b82f620',
-                        color: task.status === 'done' ? '#22c55e' : task.status === 'in_progress' ? '#f59e0b' : task.status === 'failed' ? '#ef4444' : task.isAutomated ? '#8b5cf6' : '#3b82f6',
-                      }}>
-                        {task.status === 'done' ? '✅ Done' : task.status === 'in_progress' ? '🔄 In Progress' : task.status === 'failed' ? '❌ Failed' : task.isAutomated ? '🤖 Scheduled' : '📋 To Do'}
-                      </span>
-                    </div>
-                    <p style={{ color: currentTheme.textSecondary, fontSize: '12px' }}>{task.description?.split('\n')[0]}</p>
-                  </div>
-                )) : (
-                  <p style={{ color: currentTheme.textSecondary, gridColumn: '1/-1' }}>No tasks for today</p>
-                )}
-              </div>
-            </div>
-            
-            {/* Tasks and Activities Grid */}
+            {/* Activities and Content Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-              {/* Tasks List */}
-              <div 
-                onClick={() => handleTabChange('tasks')}
-                style={{ 
-                  background: currentTheme.surface, 
-                  border: `1px solid ${currentTheme.border}`, 
-                  borderRadius: '12px', 
-                  padding: '20px',
-                  cursor: 'pointer',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <p style={{ color: currentTheme.textSecondary, fontSize: '14px' }}>✅ All Tasks</p>
-                  <span style={{ color: currentTheme.accent, fontSize: '12px' }}>View all →</span>
-                </div>
-                {tasks.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
-                    {tasks.map((task: any) => (
-                      <div key={task.id} style={{ padding: '10px', background: currentTheme.background, borderRadius: '6px' }}>
-                        <p style={{ color: currentTheme.text, fontSize: '13px', fontWeight: '500' }}>{task.title}</p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ color: currentTheme.textSecondary, fontSize: '13px' }}>No tasks</p>
-                )}
-              </div>
               {/* Activities List */}
               <div 
                 onClick={() => handleTabChange('memory')}
@@ -468,8 +369,6 @@ export default function Home() {
             </div>
           </div>
         );
-      case 'tasks':
-        return <TaskBoard theme={currentTheme} />;
       case 'calendar':
         return <Calendar theme={currentTheme} />;
       case 'memory':
@@ -791,6 +690,23 @@ export default function Home() {
                 </div>
               )}
             </div>
+            )}
+            {/* Clock */}
+            {currentTime && (
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '6px',
+                padding: '6px 10px',
+                background: currentTheme.surface,
+                borderRadius: '8px',
+                border: `1px solid ${currentTheme.border}`,
+              }}>
+                <span style={{ fontSize: '16px' }}>🕐</span>
+                <span style={{ color: currentTheme.text, fontSize: '14px', fontWeight: '600', fontFamily: 'monospace' }}>
+                  {currentTime}
+                </span>
+              </div>
             )}
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
