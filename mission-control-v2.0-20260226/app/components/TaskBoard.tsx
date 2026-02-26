@@ -1,0 +1,622 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: 'pending' | 'assigned' | 'processing' | 'review' | 'done' | 'failed';
+  phase?: string;
+  assignee: string;
+  assignedTo?: string;
+  priority: 'low' | 'medium' | 'high';
+  createdAt: string;
+  result?: any;
+  error?: string;
+}
+
+interface Agent {
+  id: string;
+  name: string;
+  specialty: string;
+  avatar: string;
+}
+
+interface Theme {
+  background: string;
+  surface: string;
+  border: string;
+  text: string;
+  textSecondary: string;
+  accent: string;
+  accentHover: string;
+}
+
+const darkTheme: Theme = {
+  background: '#0a0a0b',
+  surface: '#111113',
+  border: '#27272a',
+  text: '#fafafa',
+  textSecondary: '#a1a1aa',
+  accent: '#f97316',
+  accentHover: '#ea580c',
+};
+
+const lightTheme: Theme = {
+  background: '#fafafa',
+  surface: '#ffffff',
+  border: '#e4e4e7',
+  text: '#18181b',
+  textSecondary: '#71717a',
+  accent: '#f97316',
+  accentHover: '#ea580c',
+};
+
+const columns = [
+  { id: 'pending', label: '📥 Inbox', color: '#6b7280' },
+  { id: 'assigned', label: '📋 Assigned', color: '#8b5cf6' },
+  { id: 'processing', label: '⚡ In Progress', color: '#3b82f6' },
+  { id: 'review', label: '⚠️ Review', color: '#f59e0b' },
+  { id: 'done', label: '✅ Done', color: '#22c55e' },
+  { id: 'failed', label: '❌ Failed', color: '#dc2626' },
+];
+
+export default function TaskBoard({ theme }: { theme: Theme }) {
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [queueStatus, setQueueStatus] = useState<any>({});
+  const [newTask, setNewTask] = useState({ 
+    title: '', 
+    description: '', 
+    assignee: 'Neo',
+    assignedTo: '',
+    priority: 'medium' as 'low' | 'medium' | 'high'
+  });
+  const [showAdd, setShowAdd] = useState(false);
+  const [showResults, setShowResults] = useState<string | null>(null);
+
+  const currentTheme = theme;
+
+  useEffect(() => {
+    loadTasks();
+    loadAgents();
+  }, []);
+
+  const loadTasks = async () => {
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      
+      // Map task statuses - handle both new and legacy statuses
+      const mappedTasks = (data.tasks || []).map((t: any) => ({
+        ...t,
+        // Legacy status mapping for backward compatibility
+        status: t.status === 'completed' ? 'done' : 
+                t.status === 'in_progress' ? 'processing' :
+                t.status || 'pending',
+        createdAt: t.createdAt
+      }));
+      
+      setTasks(mappedTasks);
+      setQueueStatus(data.queueStatus || {});
+    } catch (e) {
+      console.error('Failed to load tasks:', e);
+    }
+  };
+
+  const loadAgents = async () => {
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      setAgents(data.agents || []);
+    } catch (e) {
+      console.error('Failed to load agents:', e);
+    }
+  };
+
+  const saveTasks = async (newTasks: Task[]) => {
+    setTasks(newTasks);
+    try {
+      const res = await fetch('/api/data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tasks: newTasks }),
+      });
+    } catch (e) {
+      console.error('Failed to save tasks:', e);
+    }
+  };
+
+  const addTask = async () => {
+    if (!newTask.title.trim()) return;
+    
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newTask.title,
+          description: newTask.description,
+          assignedTo: newTask.assignedTo || undefined,
+          priority: newTask.priority,
+        }),
+      });
+      
+      const data = await res.json();
+      
+      if (data.success) {
+        // Reload tasks to get the actual status from queue
+        loadTasks();
+      }
+    } catch (e) {
+      console.error('Failed to add task:', e);
+    }
+    
+    setNewTask({ title: '', description: '', assignee: 'Neo', assignedTo: '', priority: 'medium' });
+    setShowAdd(false);
+  };
+
+  const moveTask = async (taskId: string, newStatus: string) => {
+    // Map UI column to task status
+    const statusMap: Record<string, string> = {
+      'pending': 'pending',
+      'assigned': 'assigned',
+      'processing': 'processing',
+      'review': 'review',
+      'done': 'done',
+      'failed': 'failed'
+    };
+    
+    const queueStatus = statusMap[newStatus] || newStatus;
+    
+    if (queueStatus === 'pending') {
+      // Retry failed task
+      try {
+        await fetch('/api/tasks', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taskId, action: 'retry' }),
+        });
+        loadTasks();
+      } catch (e) {
+        console.error('Failed to retry task:', e);
+      }
+    }
+  };
+
+  const deleteTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`/api/tasks?id=${taskId}`, {
+        method: 'DELETE',
+      });
+      const data = await response.json();
+      
+      if (data.success) {
+        // Remove from local state
+        saveTasks(tasks.filter(t => t.id !== taskId));
+        console.log(`[Task] Deleted: ${taskId}`);
+      } else {
+        console.error('[Task] Delete failed:', data.error);
+      }
+    } catch (error) {
+      console.error('[Task] Delete error:', error);
+    }
+  };
+
+  const getTasksByStatus = (status: string) => tasks.filter(t => t.status === status);
+
+  const getAgentName = (agentId?: string) => {
+    if (!agentId) return 'Unassigned';
+    const agent = agents.find(a => a.id === agentId);
+    return agent ? `${agent.avatar} ${agent.name}` : agentId;
+  };
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return '#ef4444';
+      case 'medium': return '#f59e0b';
+      case 'low': return '#22c55e';
+      default: return '#71717a';
+    }
+  };
+
+  return (
+    <div style={{ padding: '24px', flex: 1, overflow: 'auto' }}>
+      {/* Queue Status Bar */}
+      <div style={{ 
+        display: 'flex', 
+        gap: '16px', 
+        marginBottom: '24px',
+        padding: '12px 16px',
+        background: currentTheme.surface,
+        borderRadius: '8px',
+        border: `1px solid ${currentTheme.border}`,
+        fontSize: '12px'
+      }}>
+        <div style={{ color: currentTheme.textSecondary }}>Queue:</div>
+        <div style={{ color: '#ef4444' }}>⏳ {queueStatus.pending || 0} pending</div>
+        <div style={{ color: '#3b82f6' }}>⚙️ {queueStatus.processing || 0} processing</div>
+        <div style={{ color: '#22c55e' }}>✅ {queueStatus.completed || 0} completed</div>
+        <div style={{ color: '#ef4444' }}>❌ {queueStatus.failed || 0} failed</div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: currentTheme.text }}>Tasks</h2>
+        <button
+          onClick={() => setShowAdd(!showAdd)}
+          style={{
+            padding: '10px 20px',
+            background: currentTheme.accent,
+            border: 'none',
+            borderRadius: '8px',
+            color: '#fff',
+            fontSize: '14px',
+            fontWeight: '600',
+            cursor: 'pointer',
+          }}
+        >
+          + Add Task
+        </button>
+      </div>
+
+      {showAdd && (
+        <div style={{
+          background: currentTheme.surface,
+          border: `1px solid ${currentTheme.border}`,
+          borderRadius: '12px',
+          padding: '20px',
+          marginBottom: '24px',
+        }}>
+          <input
+            type="text"
+            placeholder="Task title"
+            value={newTask.title}
+            onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: currentTheme.background,
+              border: `1px solid ${currentTheme.border}`,
+              borderRadius: '8px',
+              color: currentTheme.text,
+              fontSize: '14px',
+              marginBottom: '12px',
+            }}
+          />
+          <textarea
+            placeholder="Description (optional)"
+            value={newTask.description}
+            onChange={(e) => setNewTask({ ...newTask, description: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: currentTheme.background,
+              border: `1px solid ${currentTheme.border}`,
+              borderRadius: '8px',
+              color: currentTheme.text,
+              fontSize: '14px',
+              marginBottom: '12px',
+              minHeight: '80px',
+              resize: 'vertical',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            {/* Priority */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ color: currentTheme.textSecondary, fontSize: '14px' }}>Priority:</span>
+              <select
+                value={newTask.priority}
+                onChange={(e) => setNewTask({ ...newTask, priority: e.target.value as any })}
+                style={{
+                  padding: '8px 12px',
+                  background: currentTheme.background,
+                  border: `1px solid ${currentTheme.border}`,
+                  borderRadius: '8px',
+                  color: currentTheme.text,
+                  fontSize: '14px',
+                }}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            
+            {/* Assign to Agent */}
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ color: currentTheme.textSecondary, fontSize: '14px' }}>Assign to:</span>
+              <select
+                value={newTask.assignedTo}
+                onChange={(e) => setNewTask({ ...newTask, assignedTo: e.target.value })}
+                style={{
+                  padding: '8px 12px',
+                  background: currentTheme.background,
+                  border: `1px solid ${currentTheme.border}`,
+                  borderRadius: '8px',
+                  color: currentTheme.text,
+                  fontSize: '14px',
+                  minWidth: '150px',
+                }}
+              >
+                <option value="">Unassigned</option>
+                {agents.map(agent => (
+                  <option key={agent.id} value={agent.id}>
+                    {agent.avatar} {agent.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={addTask}
+              style={{
+                padding: '10px 20px',
+                background: currentTheme.accent,
+                border: 'none',
+                borderRadius: '8px',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Add Task
+            </button>
+            <button
+              onClick={() => setShowAdd(false)}
+              style={{
+                padding: '10px 20px',
+                background: 'transparent',
+                border: `1px solid ${currentTheme.border}`,
+                borderRadius: '8px',
+                color: currentTheme.textSecondary,
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+        {columns.map(col => (
+          <div key={col.id}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '16px',
+              paddingBottom: '12px',
+              borderBottom: `2px solid ${col.color}`,
+            }}>
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: col.color }} />
+              <span style={{ fontSize: '14px', fontWeight: '600', color: currentTheme.text }}>
+                {col.label}
+              </span>
+              <span style={{ fontSize: '12px', color: currentTheme.textSecondary, marginLeft: 'auto' }}>
+                {getTasksByStatus(col.id).length}
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {getTasksByStatus(col.id).map(task => (
+                <div
+                  key={task.id}
+                  style={{
+                    background: currentTheme.surface,
+                    border: `1px solid ${currentTheme.border}`,
+                    borderRadius: '12px',
+                    padding: '16px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: '600', color: currentTheme.text, margin: 0, flex: 1 }}>
+                      {task.title}
+                    </h4>
+                    <button
+                      onClick={() => deleteTask(task.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: currentTheme.textSecondary,
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '0',
+                        marginLeft: '8px',
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  
+                  {task.description && (
+                    <p style={{ fontSize: '12px', color: currentTheme.textSecondary, marginBottom: '12px' }}>
+                      {task.description}
+                    </p>
+                  )}
+                  
+                  {/* Show result/error for completed/failed tasks */}
+                  {(task.status === 'done' || task.status === 'failed') && task.result && (
+                    <div 
+                      style={{
+                        fontSize: '11px',
+                        padding: '8px',
+                        background: task.status === 'failed' ? '#ef444420' : '#22c55e20',
+                        borderRadius: '6px',
+                        marginBottom: '12px',
+                        color: task.status === 'failed' ? '#ef4444' : '#22c55e',
+                      }}
+                    >
+                      {task.status === 'failed' ? `❌ ${task.error || 'Failed'}` : '✅ Completed'}
+                      
+                      {/* Show detailed summary if available */}
+                      {task.result.summary && (
+                        <div 
+                          onClick={() => setShowResults(showResults === task.id ? null : task.id)}
+                          style={{ cursor: 'pointer', marginTop: '8px' }}
+                        >
+                          {/* Summary overview */}
+                          <div style={{ marginBottom: '8px' }}>
+                            <strong style={{ color: currentTheme.text }}>{task.result.summary.overview}</strong>
+                          </div>
+                          
+                          {/* Actions taken */}
+                          {task.result.summary.actions?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>ACTIONS TAKEN</div>
+                              {task.result.summary.actions.map((action: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: currentTheme.text, marginLeft: '8px' }}>• {action}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Key results */}
+                          {task.result.summary.results?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>RESULTS</div>
+                              {task.result.summary.results.map((r: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: '#22c55e', marginLeft: '8px' }}>✓ {r}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Outputs/Links */}
+                          {task.result.summary.outputs?.length > 0 && (
+                            <div style={{ marginBottom: '6px' }}>
+                              <div style={{ fontSize: '9px', color: currentTheme.textSecondary, marginBottom: '2px' }}>OUTPUTS</div>
+                              {task.result.summary.outputs.slice(0, 4).map((out: any, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', marginLeft: '8px', marginBottom: '2px' }}>
+                                  <span style={{ color: currentTheme.textSecondary }}>{out.label}:</span>{' '}
+                                  {out.type === 'link' || out.type === 'issue' || out.type === 'tweet' || out.type === 'github' ? (
+                                    <a 
+                                      href={out.value} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      style={{ color: '#3b82f6', textDecoration: 'none' }}
+                                      onClick={e => e.stopPropagation()}
+                                    >
+                                      {out.value.substring(0, 50)}...
+                                    </a>
+                                  ) : out.type === 'deliverable' ? (
+                                    <span 
+                                      style={{ color: '#22c55e', cursor: 'pointer', fontWeight: '600' }}
+                                      title={out.value}
+                                    >
+                                      📄 Click to view deliverable
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: currentTheme.text }}>{out.value.substring(0, 80)}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Metrics */}
+                          {task.result.summary.metrics?.length > 0 && (
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '8px', flexWrap: 'wrap' }}>
+                              {task.result.summary.metrics.map((m: any, i: number) => (
+                                <span key={i} style={{ fontSize: '9px', padding: '2px 6px', background: currentTheme.background, borderRadius: '3px', color: currentTheme.textSecondary }}>
+                                  {m.label}: <strong style={{ color: currentTheme.text }}>{m.value}</strong>
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {/* Next steps */}
+                          {task.result.summary.nextSteps?.length > 0 && (
+                            <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: `1px solid ${currentTheme.border}` }}>
+                              <div style={{ fontSize: '9px', color: '#f59e0b', marginBottom: '2px' }}>NEXT STEPS</div>
+                              {task.result.summary.nextSteps.map((step: string, i: number) => (
+                                <div key={i} style={{ fontSize: '10px', color: currentTheme.text, marginLeft: '8px' }}>→ {step}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          <div 
+                            onClick={() => setShowResults(showResults === task.id ? null : task.id)}
+                            style={{ fontSize: '9px', color: currentTheme.textSecondary, marginTop: '8px', textAlign: 'center', cursor: 'pointer' }}
+                          >
+                            {showResults === task.id ? '▲ Click to hide raw result' : '▼ Click to show raw result'}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Fallback to raw JSON if no summary */}
+                      {showResults === task.id && !task.result.summary && (
+                        <pre style={{ 
+                          marginTop: '8px', 
+                          padding: '8px', 
+                          background: currentTheme.background, 
+                          borderRadius: '4px',
+                          overflow: 'auto',
+                          fontSize: '10px',
+                          color: currentTheme.text
+                        }}>
+                          {JSON.stringify(task.result, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {/* Priority badge */}
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: `${getPriorityColor(task.priority)}20`,
+                        color: getPriorityColor(task.priority),
+                        textTransform: 'uppercase',
+                        fontWeight: '600',
+                      }}>
+                        {task.priority}
+                      </span>
+                      
+                      {/* Agent badge */}
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        background: '#8b5cf620',
+                        color: '#8b5cf6',
+                      }}>
+                        {getAgentName(task.assignedTo)}
+                      </span>
+                    </div>
+                    
+                    {task.status === 'failed' && (
+                      <button
+                        onClick={() => moveTask(task.id, 'pending')}
+                        style={{
+                          fontSize: '10px',
+                          padding: '4px 8px',
+                          background: currentTheme.accent,
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#fff',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Retry
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {getTasksByStatus(col.id).length === 0 && (
+                <p style={{ fontSize: '12px', color: currentTheme.textSecondary, textAlign: 'center', padding: '20px' }}>
+                  No tasks
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
