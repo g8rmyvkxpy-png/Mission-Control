@@ -6,8 +6,43 @@
   <title>PPVentures - Building the Autonomous Future</title>
   <meta name="description" content="PPVentures - AI innovation, venture building, and technical consulting. We build autonomous companies powered by AI agents.">
   <meta property="og:title" content="PPVentures - Building the Autonomous Future">
-  <meta property="og:description" content="AI innovation, venture building, and technical consulting">
+  <meta property="og:description" content="AI innovation, venture building, and technical consulting. We build autonomous companies powered by AI agents.">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://ppventures.tech/">
+  <meta property="og:image" content="https://ppventures.tech/og-image.png">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="PPVentures - Building the Autonomous Future">
+  <meta name="twitter:description" content="AI innovation, venture building, and technical consulting. We build autonomous companies powered by AI agents.">
+  <meta name="twitter:image" content="https://ppventures.tech/og-image.png">
+  
+  <!-- JSON-LD Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "PPVentures",
+    "url": "https://ppventures.tech",
+    "logo": "https://ppventures.tech/logo.svg",
+    "description": "AI innovation, venture building, and technical consulting. We build autonomous companies powered by AI agents.",
+    "sameAs": [
+      "https://twitter.com/ppventures"
+    ],
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "contactType": "sales",
+      "url": "https://ppventures.tech/contact"
+    },
+    "service": {
+      "@type": ["Service", "Product"],
+      "name": "AI Agents",
+      "description": "Custom AI agents for your business. 24/7 autonomous operation at affordable prices."
+    }
+  }
+  </script>
+  
+  <link rel="canonical" href="https://ppventures.tech/">
   <link rel="icon" type="image/svg+xml" href="/logo.svg">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -134,11 +169,68 @@
     </div>
   </section>
 
+  <section class="section" style="background: #111113; border-radius: 16px; margin: 40px auto;">
+    <div class="section-header">
+      <h2>Stay Ahead of the Curve</h2>
+      <p>Get weekly insights on AI agents, automation strategies, and venture building.</p>
+    </div>
+    <div style="max-width: 500px; margin: 0 auto;">
+      <form id="newsletter-form" onsubmit="handleNewsletter(event)" style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;">
+        <input type="email" id="newsletter-email" required placeholder="your@email.com" style="flex: 1; min-width: 250px; padding: 14px 16px; border-radius: 8px; border: 1px solid #27272a; background: #0a0a0b; color: #fafafa; font-size: 16px;">
+        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">Subscribe</button>
+      </form>
+      <div id="newsletter-response" style="display: none; margin-top: 16px; padding: 12px; border-radius: 8px; text-align: center;"></div>
+      <p style="text-align: center; color: #52525b; font-size: 14px; margin-top: 16px;">No spam. Unsubscribe anytime.</p>
+    </div>
+  </section>
+
   <section class="cta">
     <h2>Ready to Build Something Amazing?</h2>
     <p>Let's discuss how AI can transform your business operations.</p>
     <a href="/contact" class="btn btn-primary">Start a Conversation</a>
   </section>
+
+  <script>
+    async function handleNewsletter(event) {
+      event.preventDefault();
+      const form = event.target;
+      const email = form.newsletter_email.value;
+      const responseEl = document.getElementById('newsletter-response');
+      const submitBtn = form.querySelector('button');
+      
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Subscribing...';
+      
+      try {
+        // Store in localStorage for demo (in production, connect to newsletter service)
+        const subscribers = JSON.parse(localStorage.getItem('ppventures_newsletter') || '[]');
+        
+        // Check if already subscribed
+        if (subscribers.includes(email)) {
+          responseEl.style.display = 'block';
+          responseEl.style.background = '#991b1b';
+          responseEl.style.color = '#fff';
+          responseEl.textContent = 'This email is already subscribed!';
+        } else {
+          subscribers.push(email);
+          localStorage.setItem('ppventures_newsletter', JSON.stringify(subscribers));
+          responseEl.style.display = 'block';
+          responseEl.style.background = '#166534';
+          responseEl.style.color = '#fff';
+          responseEl.textContent = 'Thanks for subscribing! Check your inbox for confirmation.';
+          form.reset();
+        }
+      } catch (error) {
+        responseEl.style.display = 'block';
+        responseEl.style.background = '#991b1b';
+        responseEl.style.color = '#fff';
+        responseEl.textContent = 'Something went wrong. Please try again.';
+      }
+      
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Subscribe';
+    }
+  </script>
 
   <footer>
     <p>&copy; 2026 PPVentures. Building the autonomous future.</p>

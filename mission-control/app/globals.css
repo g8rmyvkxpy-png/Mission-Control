@@ -27,3 +27,8 @@ body {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-3px); }
 }
+
+/* Team agent hover */
+.agent-card { position: relative; }
+.agent-card .info-icon { opacity: 0; transition: opacity 0.2s ease; }
+.agent-card:hover .info-icon { opacity: 1; }

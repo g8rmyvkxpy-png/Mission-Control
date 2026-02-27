@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import AgentIntelligenceModal from './AgentIntelligenceModal';
 
 interface Theme {
   background: string;
@@ -23,6 +24,7 @@ interface Agent {
   about: string;
   skills: string[];
   soul: string;
+  group: 'sales' | 'research' | 'dev' | 'content' | 'retention';
 }
 
 interface Task {
@@ -40,29 +42,37 @@ interface Task {
   metadata?: Record<string, any>;
 }
 
+const agentGroups = [
+  { id: 'sales', label: '💰 Sales', color: '#14b8a6' },
+  { id: 'research', label: '🔬 Research', color: '#8b5cf6' },
+  { id: 'dev', label: '💻 Dev', color: '#22c55e' },
+  { id: 'content', label: '✍️ Content', color: '#f59e0b' },
+  { id: 'retention', label: '🛡️ Retention', color: '#3b82f6' },
+];
+
+// Neo excluded
 const allAgents: Agent[] = [
-  { id: 'neo', name: 'Neo', role: 'Chief Orchestrator', specialty: 'Coordinating all agents', status: 'active', avatar: '🦅', color: '#f97316', goal: 'Lead squad to $1M', about: 'Your lead AI assistant.', skills: ['Task Delegation', 'Quality Control', 'Strategy'], soul: 'I am the bridge between Deva and my agent squad.' },
-  { id: 'atlas', name: 'Atlas', role: 'Sales Lead', specialty: 'Lead Generation', status: 'idle', avatar: '💰', color: '#14b8a6', goal: 'Generate qualified leads', about: 'Sales orchestrator.', skills: ['CRM', 'Cold Outreach'], soul: 'Every lead is a possibility.' },
-  { id: 'pulse', name: 'Pulse', role: 'Outbound Scout', specialty: 'Prospecting', status: 'idle', avatar: '🎯', color: '#ec4899', goal: 'Discover new prospects', about: 'Proactive scout.', skills: ['Prospecting', 'Cold Email'], soul: 'Im always hunting.' },
-  { id: 'hunter', name: 'Hunter', role: 'Cold Outreach', specialty: 'Calling', status: 'idle', avatar: '🏹', color: '#ef4444', goal: 'Book meetings', about: 'Specialist in cold outreach.', skills: ['Cold Calling'], soul: 'I never take no for an answer.' },
-  { id: 'phoenix', name: 'Phoenix', role: 'Warm Leads', specialty: 'Conversion', status: 'idle', avatar: '🔥', color: '#f97316', goal: 'Convert to demos', about: 'Lead converter.', skills: ['Nurturing', 'Demo Booking'], soul: 'I turn spark into flame.' },
-  { id: 'scout', name: 'Scout', role: 'Research Lead', specialty: 'Analysis', status: 'idle', avatar: '🔬', color: '#8b5cf6', goal: 'Find opportunities', about: 'Research orchestrator.', skills: ['Market Analysis'], soul: 'Knowledge is power.' },
-  { id: 'radar', name: 'Radar', role: 'SEO Specialist', specialty: 'Rankings', status: 'idle', avatar: '🔍', color: '#84cc16', goal: 'Rank #1', about: 'SEO expert.', skills: ['Keyword Research'], soul: 'I make visibility happen.' },
-  { id: 'compass', name: 'Compass', role: 'Competitor', specialty: 'Monitoring', status: 'idle', avatar: '🧭', color: '#14b8a6', goal: 'Find gaps', about: 'Competitor specialist.', skills: ['Gap Analysis'], soul: 'I watch the landscape.' },
-  { id: 'trends', name: 'Trends', role: 'Market', specialty: 'Trends', status: 'idle', avatar: '📈', color: '#f59e0b', goal: 'Spot trends', about: 'Trend analyst.', skills: ['Trend Analysis'], soul: 'The future belongs to those who see it first.' },
-  { id: 'bond', name: 'Bond', role: 'Retention', specialty: 'Churn', status: 'idle', avatar: '🛡️', color: '#3b82f6', goal: 'No churn', about: 'Customer success.', skills: ['Relationship Management'], soul: 'I keep what matters most.' },
-  { id: 'anchor', name: 'Anchor', role: 'Accounts', specialty: 'Key accounts', status: 'idle', avatar: '⚓', color: '#0ea5e9', goal: 'Relationships', about: 'Account manager.', skills: ['Account Management'], soul: 'I hold accounts steady.' },
-  { id: 'mend', name: 'Mend', role: 'Issues', specialty: 'Resolution', status: 'idle', avatar: '🩹', color: '#f43f5e', goal: 'Fix issues', about: 'Issue resolver.', skills: ['Issue Resolution'], soul: 'I turn pain into loyalty.' },
-  { id: 'grow', name: 'Grow', role: 'Expansion', specialty: 'Upsell', status: 'idle', avatar: '🌱', color: '#22c55e', goal: 'Revenue', about: 'Expansion specialist.', skills: ['Upselling'], soul: 'Growth is life.' },
-  { id: 'byte', name: 'Byte', role: 'Dev Lead', specialty: 'Build', status: 'idle', avatar: '💻', color: '#22c55e', goal: 'Build', about: 'Development orchestrator.', skills: ['React', 'Node.js'], soul: 'I build what others imagine.' },
-  { id: 'pixel', name: 'Pixel', role: 'Frontend', specialty: 'UI', status: 'idle', avatar: '🎨', color: '#06b6d4', goal: 'UIs', about: 'Frontend specialist.', skills: ['React', 'CSS'], soul: 'Beauty meets function.' },
-  { id: 'server', name: 'Server', role: 'Backend', specialty: 'APIs', status: 'idle', avatar: '⚙️', color: '#84cc16', goal: 'APIs', about: 'Backend specialist.', skills: ['Node.js'], soul: 'The unseen engine.' },
-  { id: 'auto', name: 'Auto', role: 'Automation', specialty: 'Zapier', status: 'idle', avatar: '🤖', color: '#a855f7', goal: 'Automate', about: 'Automation specialist.', skills: ['Zapier'], soul: 'Why do manually?' },
-  { id: 'ink', name: 'Ink', role: 'Writer', specialty: 'Blogs', status: 'idle', avatar: '✍️', color: '#f59e0b', goal: 'Content', about: 'Content writer.', skills: ['Blog Writing'], soul: 'Words have power.' },
-  { id: 'blaze', name: 'Blaze', role: 'Social', specialty: 'Twitter', status: 'idle', avatar: '📱', color: '#ef4444', goal: 'Presence', about: 'Social media specialist.', skills: ['Twitter'], soul: 'I set the world on fire.' },
-  { id: 'cinema', name: 'Cinema', role: 'Video', specialty: 'YouTube', status: 'idle', avatar: '🎬', color: '#06b6d4', goal: 'Videos', about: 'Video producer.', skills: ['Video Editing'], soul: 'A thousand words.' },
-  { id: 'draft', name: 'Draft', role: 'Email', specialty: 'Newsletters', status: 'idle', avatar: '📧', color: '#a855f7', goal: 'Nurture', about: 'Email marketer.', skills: ['Email Writing'], soul: 'Inboxes are personal.' },
-  { id: 'care', name: 'Care', role: 'Support', specialty: 'Tickets', status: 'idle', avatar: '🎧', color: '#f97316', goal: 'Delight', about: 'Support specialist.', skills: ['Ticket Resolution'], soul: 'Every customer deserves to feel heard.' }
+  { id: 'atlas', group: 'sales', name: 'Atlas', role: 'Sales Lead', specialty: 'Lead Generation', status: 'idle', avatar: '💰', color: '#14b8a6', goal: 'Generate qualified leads', about: 'Sales orchestrator.', skills: ['CRM', 'Cold Outreach'], soul: 'Every lead is a possibility.' },
+  { id: 'pulse', group: 'sales', name: 'Pulse', role: 'Outbound Scout', specialty: 'Prospecting', status: 'idle', avatar: '🎯', color: '#ec4899', goal: 'Discover new prospects', about: 'Proactive scout.', skills: ['Prospecting', 'Cold Email'], soul: 'Im always hunting.' },
+  { id: 'hunter', group: 'sales', name: 'Hunter', role: 'Cold Outreach', specialty: 'Calling', status: 'idle', avatar: '🏹', color: '#ef4444', goal: 'Book meetings', about: 'Specialist in cold outreach.', skills: ['Cold Calling'], soul: 'I never take no for an answer.' },
+  { id: 'phoenix', group: 'sales', name: 'Phoenix', role: 'Warm Leads', specialty: 'Conversion', status: 'idle', avatar: '🔥', color: '#f97316', goal: 'Convert to demos', about: 'Lead converter.', skills: ['Nurturing', 'Demo Booking'], soul: 'I turn spark into flame.' },
+  { id: 'scout', group: 'research', name: 'Scout', role: 'Research Lead', specialty: 'Analysis', status: 'idle', avatar: '🔬', color: '#8b5cf6', goal: 'Find opportunities', about: 'Research orchestrator.', skills: ['Market Analysis'], soul: 'Knowledge is power.' },
+  { id: 'radar', group: 'research', name: 'Radar', role: 'SEO Specialist', specialty: 'Rankings', status: 'idle', avatar: '🔍', color: '#84cc16', goal: 'Rank #1', about: 'SEO expert.', skills: ['Keyword Research'], soul: 'I make visibility happen.' },
+  { id: 'compass', group: 'research', name: 'Compass', role: 'Competitor', specialty: 'Monitoring', status: 'idle', avatar: '🧭', color: '#14b8a6', goal: 'Find gaps', about: 'Competitor specialist.', skills: ['Gap Analysis'], soul: 'I watch the landscape.' },
+  { id: 'trends', group: 'research', name: 'Trends', role: 'Market', specialty: 'Trends', status: 'idle', avatar: '📈', color: '#f59e0b', goal: 'Spot trends', about: 'Trend analyst.', skills: ['Trend Analysis'], soul: 'The future belongs to those who see it first.' },
+  { id: 'bond', group: 'retention', name: 'Bond', role: 'Retention', specialty: 'Churn', status: 'idle', avatar: '🛡️', color: '#3b82f6', goal: 'No churn', about: 'Customer success.', skills: ['Relationship Management'], soul: 'I keep what matters most.' },
+  { id: 'anchor', group: 'retention', name: 'Anchor', role: 'Accounts', specialty: 'Key accounts', status: 'idle', avatar: '⚓', color: '#0ea5e9', goal: 'Relationships', about: 'Account manager.', skills: ['Account Management'], soul: 'I hold accounts steady.' },
+  { id: 'mend', group: 'retention', name: 'Mend', role: 'Issues', specialty: 'Resolution', status: 'idle', avatar: '🩹', color: '#f43f5e', goal: 'Fix issues', about: 'Issue resolver.', skills: ['Issue Resolution'], soul: 'I turn pain into loyalty.' },
+  { id: 'grow', group: 'retention', name: 'Grow', role: 'Expansion', specialty: 'Upsell', status: 'idle', avatar: '🌱', color: '#22c55e', goal: 'Revenue', about: 'Expansion specialist.', skills: ['Upselling'], soul: 'Growth is life.' },
+  { id: 'byte', group: 'dev', name: 'Byte', role: 'Dev Lead', specialty: 'Build', status: 'idle', avatar: '💻', color: '#22c55e', goal: 'Build', about: 'Development orchestrator.', skills: ['React', 'Node.js'], soul: 'I build what others imagine.' },
+  { id: 'pixel', group: 'dev', name: 'Pixel', role: 'Frontend', specialty: 'UI', status: 'idle', avatar: '🎨', color: '#06b6d4', goal: 'UIs', about: 'Frontend specialist.', skills: ['React', 'CSS'], soul: 'Beauty meets function.' },
+  { id: 'server', group: 'dev', name: 'Server', role: 'Backend', specialty: 'APIs', status: 'idle', avatar: '⚙️', color: '#84cc16', goal: 'APIs', about: 'Backend specialist.', skills: ['Node.js'], soul: 'The unseen engine.' },
+  { id: 'auto', group: 'dev', name: 'Auto', role: 'Automation', specialty: 'Zapier', status: 'idle', avatar: '🤖', color: '#a855f7', goal: 'Automate', about: 'Automation specialist.', skills: ['Zapier'], soul: 'Why do manually?' },
+  { id: 'ink', group: 'content', name: 'Ink', role: 'Writer', specialty: 'Blogs', status: 'idle', avatar: '✍️', color: '#f59e0b', goal: 'Content', about: 'Content writer.', skills: ['Blog Writing'], soul: 'Words have power.' },
+  { id: 'blaze', group: 'content', name: 'Blaze', role: 'Social', specialty: 'Twitter', status: 'idle', avatar: '📱', color: '#ef4444', goal: 'Presence', about: 'Social media specialist.', skills: ['Twitter'], soul: 'I set the world on fire.' },
+  { id: 'cinema', group: 'content', name: 'Cinema', role: 'Video', specialty: 'YouTube', status: 'idle', avatar: '🎬', color: '#06b6d4', goal: 'Videos', about: 'Video producer.', skills: ['Video Editing'], soul: 'A thousand words.' },
+  { id: 'draft', group: 'content', name: 'Draft', role: 'Email', specialty: 'Newsletters', status: 'idle', avatar: '📧', color: '#a855f7', goal: 'Nurture', about: 'Email marketer.', skills: ['Email Writing'], soul: 'Inboxes are personal.' },
+  { id: 'care', group: 'retention', name: 'Care', role: 'Support', specialty: 'Tickets', status: 'idle', avatar: '🎧', color: '#f97316', goal: 'Delight', about: 'Support specialist.', skills: ['Ticket Resolution'], soul: 'Every customer deserves to feel heard.' }
 ];
 
 const workflowColumns = [
@@ -103,7 +113,9 @@ const cancelButtonStyle = (theme: Theme): React.CSSProperties => ({
 
 export default function Team({ theme }: { theme: Theme }) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  
   const [showNewTaskModal, setShowNewTaskModal] = useState(false);
+  const [selectedAgentForModal, setSelectedAgentForModal] = useState<Agent | null>(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [showBroadcastModal, setShowBroadcastModal] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
@@ -144,6 +156,14 @@ export default function Team({ theme }: { theme: Theme }) {
   };
 
   const getAgentTasks = (agentId: string) => {
+    return tasks.filter(t => t.assignedTo === agentId).slice(0, 10);
+  };
+
+  const getAgentsByGroup = (groupId: string) => {
+    return allAgents.filter(a => a.group === groupId);
+  };
+
+  const handleCreateTaskOLD = (agentId: string) => {
     return tasks.filter(t => t.assignedTo === agentId).slice(0, 10);
   };
 
@@ -242,14 +262,29 @@ export default function Team({ theme }: { theme: Theme }) {
       {/* LEFT COLUMN - Agents */}
       <div style={{ width: '260px', borderRight: `1px solid ${theme.border}`, padding: '12px', overflowY: 'auto', background: theme.surface, flexShrink: 0, height: '100%' }}>
         <h2 style={{ fontSize: '15px', fontWeight: '600', color: theme.text, marginBottom: '12px' }}>Agents ({allAgents.length})</h2>
+        <style>{`
+          .agent-card { position: relative; }
+          .agent-card .info-icon { opacity: 0; transition: opacity 0.2s ease; }
+          .agent-card:hover .info-icon { opacity: 1; }
+        `}</style>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {allAgents.map(agent => {
-            const status = getAgentStatus(agent.id);
-            const agentTasks = tasks.filter(t => t.assignedTo === agent.id && t.status !== 'completed');
-            
+          {agentGroups.map(group => {
+            const groupAgents = allAgents.filter(a => a.group === group.id);
             return (
-              <div key={agent.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: theme.background, borderRadius: '6px', cursor: 'pointer' }}>
+              <div key={group.id} style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', fontWeight: '700', color: group.color, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  {group.label}
+                </div>
+                {groupAgents.map(agent => {
+                  const status = getAgentStatus(agent.id);
+                  const agentTasks = tasks.filter(t => t.assignedTo === agent.id && t.status !== 'completed');
+                  
+                  return (
+                  <div 
+                key={agent.id} 
+                className="agent-card"
+                style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 10px', background: theme.background, borderRadius: '6px', cursor: 'pointer', marginBottom: '4px' }}>
                 <div style={{ fontSize: '18px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${agent.color}20`, borderRadius: '4px' }}>
                   {agent.avatar}
                 </div>
@@ -260,8 +295,11 @@ export default function Team({ theme }: { theme: Theme }) {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   {agentTasks.length > 0 && <span style={{ fontSize: '9px', padding: '1px 5px', borderRadius: '8px', background: '#f59e0b20', color: '#f59e0b' }}>{agentTasks.length}</span>}
                   <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: status === 'working' ? '#22c55e' : '#6b7280' }} />
-                  <button onClick={(e) => { e.stopPropagation(); openAgentModal(agent); }} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', color: theme.textSecondary }} title="Info">ℹ️</button>
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedAgentForModal(agent); }} className="info-icon" style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: '2px', color: theme.textSecondary }} title="View details">ℹ️</button>
                 </div>
+              </div>
+                  );
+                })}
               </div>
             );
           })}
@@ -314,23 +352,41 @@ export default function Team({ theme }: { theme: Theme }) {
         </div>
       </div>
 
-      {/* Agent Modal */}
+      {/* Enhanced Agent Modal */}
       {showAgentModal && selectedAgent && (
         <div style={modalOverlay} onClick={() => { setShowAgentModal(false); setSelectedAgent(null); }}>
-          <div style={{ ...modalContent, maxWidth: '480px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
-              <div style={{ fontSize: '36px', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${selectedAgent.color}20`, borderRadius: '12px' }}>{selectedAgent.avatar}</div>
-              <div>
-                <h2 style={{ fontSize: '18px', fontWeight: '600', color: theme.text, margin: 0 }}>{selectedAgent.name}</h2>
-                <div style={{ fontSize: '13px', color: theme.textSecondary }}>{selectedAgent.role} - {selectedAgent.specialty}</div>
-                <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '10px', background: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e20' : '#6b728020', color: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e' : theme.textSecondary }}>{getAgentStatus(selectedAgent.id) === 'working' ? '🟢 Working' : '⚪ Idle'}</span>
+          <div style={{ ...modalContent, maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            {/* Header with avatar, name, role, status, group */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '20px', paddingBottom: '16px', borderBottom: `1px solid ${theme.border}` }}>
+              <div style={{ fontSize: '48px', width: '72px', height: '72px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${selectedAgent.color}20`, borderRadius: '16px' }}>{selectedAgent.avatar}</div>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontSize: '22px', fontWeight: '700', color: theme.text, margin: 0 }}>{selectedAgent.name}</h2>
+                <div style={{ fontSize: '14px', color: theme.textSecondary }}>{selectedAgent.role}</div>
+                <div style={{ fontSize: '13px', color: selectedAgent.color, marginTop: '2px' }}>{selectedAgent.specialty}</div>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '12px', background: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e20' : '#6b728020', color: getAgentStatus(selectedAgent.id) === 'working' ? '#22c55e' : theme.textSecondary }}>{getAgentStatus(selectedAgent.id) === 'working' ? '🟢 Working' : '⚪ Idle'}</span>
+                  <span style={{ fontSize: '10px', padding: '3px 10px', borderRadius: '12px', background: `${selectedAgent.color}20`, color: selectedAgent.color }}>{agentGroups.find(g => g.id === selectedAgent.group)?.label}</span>
+                </div>
               </div>
-              <button onClick={() => { setShowAgentModal(false); setSelectedAgent(null); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: theme.textSecondary }}>×</button>
+              <button onClick={() => { setShowAgentModal(false); setSelectedAgent(null); }} style={{ marginLeft: 'auto', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: theme.textSecondary }}>×</button>
             </div>
             
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '4px', textTransform: 'uppercase' }}>About</div>
-              <div style={{ fontSize: '13px', color: theme.text }}>{selectedAgent.about}</div>
+            {/* About */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>About</div>
+              <div style={{ fontSize: '14px', color: theme.text, lineHeight: '1.5' }}>{selectedAgent.about}</div>
+            </div>
+            
+            {/* Goal */}
+            <div style={{ marginBottom: '16px', padding: '14px', background: theme.background, borderRadius: '8px', borderLeft: `3px solid ${selectedAgent.color}` }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Goal</div>
+              <div style={{ fontSize: '14px', color: selectedAgent.color, fontWeight: '500' }}>{selectedAgent.goal}</div>
+            </div>
+            
+            {/* Soul */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Soul</div>
+              <div style={{ fontSize: '13px', color: theme.text, fontStyle: 'italic', fontFamily: 'Georgia, serif', padding: '12px', background: theme.background, borderRadius: '8px' }}>"{selectedAgent.soul}"</div>
             </div>
             
             <div style={{ marginBottom: '12px' }}>
@@ -338,32 +394,88 @@ export default function Team({ theme }: { theme: Theme }) {
               <div style={{ fontSize: '13px', color: selectedAgent.color }}>{selectedAgent.goal}</div>
             </div>
             
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '6px', textTransform: 'uppercase' }}>Skills</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {selectedAgent.skills.map(skill => <span key={skill} style={{ fontSize: '11px', padding: '4px 8px', borderRadius: '4px', background: theme.background, color: theme.text }}>{skill}</span>)}
+            {/* Skills */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Skills</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {selectedAgent.skills.map(skill => <span key={skill} style={{ fontSize: '12px', padding: '6px 12px', borderRadius: '6px', background: theme.background, color: theme.text, border: `1px solid ${theme.border}` }}>{skill}</span>)}
               </div>
             </div>
             
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>Tasks ({getAgentTasks(selectedAgent.id).length})</div>
-              <div style={{ maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {getAgentTasks(selectedAgent.id).map(task => (
-                  <div key={task.id} onClick={() => { setSelectedTask(task); setShowTaskModal(true); }} style={{ padding: '8px', background: theme.background, borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: task.status === 'completed' ? '#22c55e' : task.status === 'failed' ? '#ef4444' : task.status === 'processing' ? '#3b82f6' : '#f59e0b' }}>{task.status === 'completed' ? '✅' : task.status === 'failed' ? '❌' : task.status === 'processing' ? '⚙️' : '⏳'}</span>
-                      <span style={{ color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+            {/* Task History */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Recent Tasks ({tasks.filter(t => t.assignedTo === selectedAgent.id).length})</div>
+              <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {tasks.filter(t => t.assignedTo === selectedAgent.id).slice(0, 15).map(task => (
+                  <div key={task.id} onClick={() => { setSelectedTask(task); setShowTaskModal(true); }} style={{ padding: '10px', background: theme.background, borderRadius: '6px', cursor: 'pointer', border: `1px solid ${theme.border}` }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '12px' }}>{task.status === 'completed' ? '✅' : task.status === 'failed' ? '❌' : task.status === 'processing' ? '⚙️' : '⏳'}</span>
+                      <span style={{ fontSize: '12px', fontWeight: '500', color: theme.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+                      <span style={{ fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: task.priority === 'high' ? '#ef444420' : task.priority === 'medium' ? '#f59e0b20' : '#22c55e20', color: task.priority === 'high' ? '#ef4444' : task.priority === 'medium' ? '#f59e0b' : '#22c55e' }}>{task.priority}</span>
+                    </div>
+                    <div style={{ fontSize: '10px', color: theme.textSecondary, marginLeft: '20px' }}>
+                      {task.status === 'completed' ? `✓ Completed ${task.completedAt ? new Date(task.completedAt).toLocaleDateString() : ''}` : task.status === 'failed' ? `❌ ${task.error?.slice(0, 40) || 'Failed'}` : `${task.status} • ${new Date(task.createdAt).toLocaleDateString()}`}
                     </div>
                   </div>
                 ))}
-                {getAgentTasks(selectedAgent.id).length === 0 && <div style={{ fontSize: '11px', color: theme.textSecondary, textAlign: 'center', padding: '8px' }}>No tasks yet</div>}
+                {tasks.filter(t => t.assignedTo === selectedAgent.id).length === 0 && <div style={{ fontSize: '12px', color: theme.textSecondary, textAlign: 'center', padding: '16px', background: theme.background, borderRadius: '6px' }}>No tasks assigned yet</div>}
               </div>
             </div>
             
-            <div>
-              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '8px', textTransform: 'uppercase' }}>Send Message</div>
-              <textarea placeholder={`Message to ${selectedAgent.name}...`} value={chatMessage} onChange={e => setChatMessage(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '8px', background: theme.background, border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px', minHeight: '60px', resize: 'vertical' }} />
-              <button onClick={handleSendMessage} disabled={!chatMessage.trim() || sending} style={{ width: '100%', padding: '10px', background: theme.accent, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: chatMessage.trim() && !sending ? 'pointer' : 'not-allowed', opacity: chatMessage.trim() && !sending ? 1 : 0.5 }}>{sending ? 'Sending...' : `Send to ${selectedAgent.name}`}</button>
+            {/* Quick Task Creation */}
+            <div style={{ padding: '16px', background: theme.background, borderRadius: '8px', border: `1px solid ${theme.border}` }}>
+              <div style={{ fontSize: '11px', fontWeight: '600', color: theme.textSecondary, marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Assign Task to {selectedAgent.name}</div>
+              <input 
+                type="text" 
+                placeholder="Task title..." 
+                value={newTask.title} 
+                onChange={e => setNewTask({ ...newTask, title: e.target.value, assignedTo: selectedAgent.id })}
+                style={{ width: '100%', padding: '10px', marginBottom: '8px', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px' }}
+              />
+              <textarea 
+                placeholder="Description (optional)..." 
+                value={newTask.description} 
+                onChange={e => setNewTask({ ...newTask, description: e.target.value })}
+                style={{ width: '100%', padding: '10px', marginBottom: '8px', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px', minHeight: '50px', resize: 'vertical' }}
+              />
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select 
+                  value={newTask.priority} 
+                  onChange={e => setNewTask({ ...newTask, priority: e.target.value })}
+                  style={{ flex: 1, padding: '8px', background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: '6px', color: theme.text, fontSize: '12px' }}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+                <button 
+                  onClick={async () => {
+                    if (!newTask.title.trim()) return;
+                    setSending(true);
+                    try {
+                      await fetch('/api/tasks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          title: newTask.title,
+                          description: newTask.description,
+                          assignedTo: selectedAgent.id,
+                          priority: newTask.priority,
+                        }),
+                      });
+                      setNewTask({ title: '', description: '', assignedTo: '', priority: 'medium' });
+                      fetchTasks();
+                    } catch (e) {
+                      console.error('Failed to create task:', e);
+                    }
+                    setSending(false);
+                  }}
+                  disabled={!newTask.title.trim() || sending}
+                  style={{ padding: '8px 16px', background: theme.accent, border: 'none', borderRadius: '6px', color: '#fff', fontSize: '12px', fontWeight: '600', cursor: newTask.title.trim() && !sending ? 'pointer' : 'not-allowed', opacity: newTask.title.trim() && !sending ? 1 : 0.5 }}
+                >
+                  {sending ? 'Creating...' : 'Assign Task'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -534,6 +646,16 @@ export default function Team({ theme }: { theme: Theme }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Agent Intelligence Modal */}
+      {selectedAgentForModal && (
+        <AgentIntelligenceModal
+          agent={selectedAgentForModal}
+          isOpen={!!selectedAgentForModal}
+          onClose={() => setSelectedAgentForModal(null)}
+          theme={theme}
+        />
       )}
     </div>
   );
