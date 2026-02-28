@@ -202,10 +202,40 @@
       submitBtn.textContent = 'Subscribing...';
       
       try {
-        // Store in localStorage for demo (in production, connect to newsletter service)
+        const response = await fetch('http://72.62.231.18:3000/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'Newsletter Subscriber',
+            email: email,
+            service: 'newsletter',
+            message: 'New newsletter subscription'
+          })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          responseEl.style.display = 'block';
+          responseEl.style.background = '#166534';
+          responseEl.style.color = '#fff';
+          responseEl.textContent = 'Thanks for subscribing! Check your inbox for confirmation.';
+          form.reset();
+          
+          // Also store locally for backup
+          const subscribers = JSON.parse(localStorage.getItem('ppventures_newsletter') || '[]');
+          if (!subscribers.includes(email)) {
+            subscribers.push(email);
+            localStorage.setItem('ppventures_newsletter', JSON.stringify(subscribers));
+          }
+        } else {
+          throw new Error(result.error || 'Subscription failed');
+        }
+      } catch (error) {
+        // Fallback to localStorage if API unavailable
+        console.warn('API unavailable, using localStorage fallback');
         const subscribers = JSON.parse(localStorage.getItem('ppventures_newsletter') || '[]');
         
-        // Check if already subscribed
         if (subscribers.includes(email)) {
           responseEl.style.display = 'block';
           responseEl.style.background = '#991b1b';
@@ -220,11 +250,6 @@
           responseEl.textContent = 'Thanks for subscribing! Check your inbox for confirmation.';
           form.reset();
         }
-      } catch (error) {
-        responseEl.style.display = 'block';
-        responseEl.style.background = '#991b1b';
-        responseEl.style.color = '#fff';
-        responseEl.textContent = 'Something went wrong. Please try again.';
       }
       
       submitBtn.disabled = false;
