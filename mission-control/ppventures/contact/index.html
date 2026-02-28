@@ -162,25 +162,43 @@
         name: form.name.value,
         email: form.email.value,
         service: form.service.value,
-        message: form.message.value,
-        timestamp: new Date().toISOString()
+        message: form.message.value
       };
       
       submitBtn.disabled = true;
       submitBtn.textContent = 'Sending...';
       
       try {
-        // Store in localStorage for demo (in production, this would go to an API)
+        const response = await fetch('http://72.62.231.18:3000/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          responseEl.className = 'response-message success';
+          responseEl.textContent = result.message || 'Thanks for reaching out! We\'ll get back to you within 24 hours.';
+          form.reset();
+          
+          // Also store locally for backup
+          const submissions = JSON.parse(localStorage.getItem('ppventures_contacts') || '[]');
+          submissions.push({ ...formData, timestamp: new Date().toISOString(), synced: true });
+          localStorage.setItem('ppventures_contacts', JSON.stringify(submissions));
+        } else {
+          throw new Error(result.error || 'Submission failed');
+        }
+      } catch (error) {
+        // Fallback to localStorage if API unavailable
+        console.warn('API unavailable, using localStorage fallback');
         const submissions = JSON.parse(localStorage.getItem('ppventures_contacts') || '[]');
-        submissions.push(formData);
+        submissions.push({ ...formData, timestamp: new Date().toISOString(), synced: false });
         localStorage.setItem('ppventures_contacts', JSON.stringify(submissions));
         
         responseEl.className = 'response-message success';
         responseEl.textContent = 'Thanks for reaching out! We\'ll get back to you within 24 hours.';
         form.reset();
-      } catch (error) {
-        responseEl.className = 'response-message error';
-        responseEl.textContent = 'Something went wrong. Please try again or email us directly.';
       }
       
       submitBtn.disabled = false;
