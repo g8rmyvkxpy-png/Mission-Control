@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "skills": {
+    "agent-browser": {
+      "version": "0.2.0",
+      "installedAt": 1772300216336
+    },
+    "email-send": {
+      "version": "1.0.0",
+      "installedAt": 1772300234776
+    },
+    "deep-research-pro": {
+      "version": "1.0.2",
+      "installedAt": 1772300279952
+    },
+    "codex-orchestrator": {
+      "version": "1.0.0",
+      "installedAt": 1772300314206
+    }
+  }
+}

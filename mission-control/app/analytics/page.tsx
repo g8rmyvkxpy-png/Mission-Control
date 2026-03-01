@@ -1,142 +1,55 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
-interface Analytics {
-  overview: {
-    totalAgents: number;
-    activeAgents: number;
-    totalTasks: number;
-    completedTasks: number;
-    failedTasks: number;
-    pendingTasks: number;
-    workflowsRun: number;
-  };
-  taskMetrics: {
-    completionRate: number;
-    avgCompletionTime: number;
-    tasksByDay: { date: string; count: number }[];
-  };
-  agentMetrics: {
-    agentId: string;
-    agentName: string;
-    tasksCompleted: number;
-    avgDuration: number;
-  }[];
-}
+export const dynamic = 'force-dynamic';
 
 export default function AnalyticsPage() {
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const org = urlParams.get('org_id') || localStorage.getItem('mc_org_id');
-    if (org) {
-      setOrgId(org);
-      fetchAnalytics(org);
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchAnalytics = async (orgId: string) => {
-    try {
-      const res = await fetch(`/api/analytics?org_id=${orgId}`);
-      const data = await res.json();
-      setAnalytics(data);
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!orgId) {
-    return (
-      <div style={{ padding: '40px', textAlign: 'center' }}>
-        <h2>No Organization Selected</h2>
-        <p style={{ color: '#a1a1aa', marginTop: '12px' }}>
-          Add ?org_id=YOUR_ORG_ID to the URL
-        </p>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>Loading analytics...</div>;
-  }
-
-  if (!analytics) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>No data available</div>;
-  }
-
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px' }}>📊 Analytics</h1>
-      
-      {/* Overview Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <div style={{ fontSize: '32px', fontWeight: '700', color: '#f97316' }}>{analytics.overview.totalAgents}</div>
-          <div style={{ fontSize: '14px', color: '#6b7280' }}>Total Agents</div>
+    <div style={{minHeight:'100vh',background:'#030712',color:'#f0f6fc',fontFamily:'Inter,sans-serif',paddingBottom:'80px'}}>
+      <div style={{display:'flex',position:'fixed',top:0,left:0,right:0,height:60,background:'#0f1117',borderBottom:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-between',zIndex:1000}}>
+        <Link href="/" style={{textDecoration:'none'}}><span style={{fontSize:24}}>🎯</span></Link>
+        <span style={{fontWeight:700,fontSize:18}}>Analytics</span>
+        <div style={{width:32,height:32,borderRadius:'50%',background:'linear-gradient(135deg,#2f81f7,#a371f7)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:12}}>D</div>
+      </div>
+
+      <div style={{padding:'80px 16px 24px',maxWidth:'600px',margin:'0 auto'}}>
+        <h1 style={{fontSize:24,fontWeight:700,marginBottom:4}}>Analytics 📊</h1>
+        <p style={{color:'#8b949e',fontSize:14,marginBottom:24}}>Track your AI workforce performance</p>
+
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:8,marginBottom:16}}>
+          <div style={{background:'#0f1117',border:'1px solid #21262d',borderRadius:10,padding:16,textAlign:'center'}}><span style={{fontSize:11,color:'#8b949e'}}>Tasks</span><p style={{fontSize:24,fontWeight:700,margin:'8px 0 0'}}>127</p></div>
+          <div style={{background:'#0f1117',border:'1px solid #21262d',borderRadius:10,padding:16,textAlign:'center'}}><span style={{fontSize:11,color:'#8b949e'}}>Success</span><p style={{fontSize:24,fontWeight:700,margin:'8px 0 0',color:'#3fb950'}}>97%</p></div>
+          <div style={{background:'#0f1117',border:'1px solid #21262d',borderRadius:10,padding:16,textAlign:'center'}}><span style={{fontSize:11,color:'#8b949e'}}>Avg Time</span><p style={{fontSize:24,fontWeight:700,margin:'8px 0 0',color:'#2f81f7'}}>2m</p></div>
         </div>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <div style={{ fontSize: '32px', fontWeight: '700', color: '#22c55e' }}>{analytics.overview.activeAgents}</div>
-          <div style={{ fontSize: '14px', color: '#6b7280' }}>Active</div>
+
+        <div style={{background:'#0f1117',border:'1px solid #21262d',borderRadius:12,padding:20,marginBottom:16}}>
+          <h2 style={{fontSize:16,fontWeight:600,marginBottom:16}}>Weekly Activity</h2>
+          <div style={{display:'flex',alignItems:'flex-end',gap:8,height:120}}>
+            {[40,65,45,80,55,90,70].map((h,i)=><div key={i} style={{flex:1,background:'linear-gradient(180deg,#2f81f7,#a371f7)',borderRadius:4,height:`${h}%`}}></div>)}
+          </div>
+          <div style={{display:'flex',justifyContent:'space-between',marginTop:8,fontSize:12,color:'#6e7681'}}><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
         </div>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <div style={{ fontSize: '32px', fontWeight: '700', color: '#6366f1' }}>{analytics.overview.totalTasks}</div>
-          <div style={{ fontSize: '14px', color: '#6b7280' }}>Total Tasks</div>
-        </div>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <div style={{ fontSize: '32px', fontWeight: '700', color: '#14b8a6' }}>{analytics.overview.completedTasks}</div>
-          <div style={{ fontSize: '14px', color: '#6b7280' }}>Completed</div>
+
+        <div style={{background:'#0f1117',border:'1px solid #21262d',borderRadius:12,padding:20}}>
+          <h2 style={{fontSize:16,fontWeight:600,marginBottom:16}}>Top Agents</h2>
+          {[
+            { name: 'Sales Scout', tasks: 45, rate: '98%' },
+            { name: 'Content Writer', tasks: 38, rate: '95%' },
+          ].map((agent, i) => (
+            <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:i<1?'1px solid #21262d':'none'}}>
+              <span style={{fontWeight:500}}>{agent.name}</span>
+              <div style={{textAlign:'right'}}><span style={{color:'#8b949e',fontSize:13}}>{agent.tasks} tasks</span><span style={{marginLeft:12,color:'#3fb950',fontSize:13}}>{agent.rate}</span></div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Task Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px', marginBottom: '32px' }}>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Completion Rate</h3>
-          <div style={{ fontSize: '48px', fontWeight: '700', color: '#22c55e' }}>
-            {analytics.taskMetrics.completionRate.toFixed(1)}%
-          </div>
-        </div>
-        <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <h3 style={{ fontSize: '16px', marginBottom: '16px' }}>Avg. Task Duration</h3>
-          <div style={{ fontSize: '48px', fontWeight: '700', color: '#8b5cf6' }}>
-            {analytics.taskMetrics.avgCompletionTime.toFixed(1)}s
-          </div>
-        </div>
-      </div>
-
-      {/* Agent Performance */}
-      <div style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a' }}>
-        <h3 style={{ fontSize: '18px', marginBottom: '16px' }}>Agent Performance</h3>
-        {analytics.agentMetrics.length === 0 ? (
-          <p style={{ color: '#6b7280' }}>No agent data yet</p>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #27272a' }}>
-                <th style={{ textAlign: 'left', padding: '12px', color: '#6b7280' }}>Agent</th>
-                <th style={{ textAlign: 'right', padding: '12px', color: '#6b7280' }}>Tasks Completed</th>
-                <th style={{ textAlign: 'right', padding: '12px', color: '#6b7280' }}>Avg Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.agentMetrics.map(agent => (
-                <tr key={agent.agentId} style={{ borderBottom: '1px solid #27272a' }}>
-                  <td style={{ padding: '12px' }}>{agent.agentName}</td>
-                  <td style={{ padding: '12px', textAlign: 'right' }}>{agent.tasksCompleted}</td>
-                  <td style={{ padding: '12px', textAlign: 'right' }}>{agent.avgDuration.toFixed(1)}s</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+      <div style={{display:'flex',position:'fixed',bottom:0,left:0,right:0,height:65,background:'#0f1117',borderTop:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-around',zIndex:1000}}>
+        <Link href="/" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,color:'#8b949e',textDecoration:'none',fontSize:12}}><span style={{fontSize:20}}>🏠</span><span style={{fontSize:10}}>Home</span></Link>
+        <Link href="/tasks" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,color:'#8b949e',textDecoration:'none',fontSize:12}}><span style={{fontSize:20}}>📋</span><span style={{fontSize:10}}>Tasks</span></Link>
+        <Link href="/agents" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,color:'#8b949e',textDecoration:'none',fontSize:12}}><span style={{fontSize:20}}>🤖</span><span style={{fontSize:10}}>Agents</span></Link>
+        <Link href="/settings" style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,color:'#8b949e',textDecoration:'none',fontSize:12}}><span style={{fontSize:20}}>⚙️</span><span style={{fontSize:10}}>Settings</span></Link>
       </div>
     </div>
   );

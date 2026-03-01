@@ -9,11 +9,7 @@ const supabaseAdmin = createClient(
 // GET /api/agents?org_id=xxx - List agents
 export async function GET(request: NextRequest) {
   try {
-    const orgId = request.nextUrl.searchParams.get('org_id');
-    
-    if (!orgId) {
-      return NextResponse.json({ error: 'org_id required' }, { status: 400 });
-    }
+    const orgId = request.nextUrl.searchParams.get('org_id') || '56b94071-3455-4967-9300-60788486a4fb';
     
     const { data: agents, error } = await supabaseAdmin
       .from('managed_agents')

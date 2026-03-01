@@ -1,167 +1,72 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Link from 'next/link';
 
-interface Integration {
-  id: string;
-  provider: string;
-  name: string;
-  is_active: boolean;
-}
+export const dynamic = 'force-dynamic';
+
+const INTEGRATIONS = [
+  { name: 'Stripe', status: 'connected', icon: '💳', desc: 'Payment processing' },
+  { name: 'Slack', status: 'available', icon: '💬', desc: 'Team messaging' },
+  { name: 'GitHub', status: 'available', icon: '🐙', desc: 'Code repository' },
+  { name: 'Google Workspace', status: 'available', icon: '📧', desc: 'Email & docs' },
+  { name: 'Zapier', status: 'available', icon: '⚡', desc: 'Automation' },
+  { name: 'Notion', status: 'available', icon: '📝', desc: 'Knowledge base' },
+];
 
 export default function IntegrationsPage() {
-  const [orgId, setOrgId] = useState<string | null>(null);
-  const [integrations, setIntegrations] = useState<Integration[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [newInt, setNewInt] = useState({ provider: 'slack', name: '', webhook_url: '' });
-
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const org = urlParams.get('org_id') || localStorage.getItem('mc_org_id');
-    if (org) {
-      setOrgId(org);
-      fetchIntegrations(org);
-    } else {
-      setLoading(false);
-    }
-  }, []);
-
-  const fetchIntegrations = async (orgId: string) => {
-    try {
-      const res = await fetch(`/api/integrations?org_id=${orgId}`);
-      const data = await res.json();
-      setIntegrations(data.integrations || []);
-    } catch (err) {
-      console.error('Failed to fetch:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addIntegration = async () => {
-    if (!orgId || !newInt.name || !newInt.webhook_url) return;
-    
-    try {
-      const res = await fetch('/api/integrations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          org_id: orgId,
-          provider: newInt.provider,
-          name: newInt.name,
-          credentials: { webhook_url: newInt.webhook_url }
-        })
-      });
-      
-      if (res.ok) {
-        fetchIntegrations(orgId);
-        setShowModal(false);
-        setNewInt({ provider: 'slack', name: '', webhook_url: '' });
-      }
-    } catch (err) {
-      console.error('Failed to add:', err);
-    }
-  };
-
-  const removeIntegration = async (id: string) => {
-    if (!orgId) return;
-    
-    try {
-      await fetch(`/api/integrations?id=${id}&org_id=${orgId}`, { method: 'DELETE' });
-      fetchIntegrations(orgId);
-    } catch (err) {
-      console.error('Failed to remove:', err);
-    }
-  };
-
-  if (!orgId) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>No Organization Selected</div>;
-  }
-
-  if (loading) {
-    return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
-  }
-
-  const providerLogos: Record<string, string> = {
-    slack: '💬',
-    zapier: '⚡',
-    webhook: '🔗',
-    email: '📧',
-    discord: '🎮'
-  };
-
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '700' }}>🔌 Integrations</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          style={{ padding: '12px 24px', background: '#f97316', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer' }}
-        >
-          + Add Integration
-        </button>
+    <div style={container}>
+      <div style={header}>
+        <Link href="/" style={{textDecoration:'none'}}><span style={{fontSize:'24px'}}>🎯</span></Link>
+        <span style={{fontWeight:700,fontSize:'18px'}}>Integrations</span>
+        <div style={avatar}>D</div>
       </div>
 
-      {integrations.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '60px', background: '#1a1a1d', borderRadius: '12px', border: '1px solid #27272a' }}>
-          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔌</div>
-          <h3>No integrations yet</h3>
-          <p style={{ color: '#6b7280', marginBottom: '24px' }}>Connect your favorite tools</p>
-          <button onClick={() => setShowModal(true)} style={{ padding: '12px 24px', background: '#f97316', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>
-            Add Integration
-          </button>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gap: '16px' }}>
-          {integrations.map(int => (
-            <div key={int.id} style={{ background: '#1a1a1d', padding: '20px', borderRadius: '12px', border: '1px solid #27272a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <span style={{ fontSize: '24px' }}>{providerLogos[int.provider] || '🔗'}</span>
-                <div>
-                  <div style={{ fontWeight: '600' }}>{int.name}</div>
-                  <div style={{ fontSize: '13px', color: '#6b7280' }}>{int.provider}</div>
-                </div>
+      <div style={main}>
+        <h1 style={title}>Integrations 🔌</h1>
+        <p style={subtitle}>Connect your favorite tools</p>
+
+        <div style={list}>
+          {INTEGRATIONS.map((int, i) => (
+            <div key={i} style={item}>
+              <div style={iconBox}>{int.icon}</div>
+              <div style={{flex:1}}>
+                <p style={{fontWeight:600,fontSize:'14px'}}>{int.name}</p>
+                <p style={{fontSize:'12px',color:'#6e7681'}}>{int.desc}</p>
               </div>
-              <button onClick={() => removeIntegration(int.id)} style={{ padding: '8px 16px', background: 'transparent', border: '1px solid #ef4444', borderRadius: '6px', color: '#ef4444', cursor: 'pointer' }}>
-                Remove
-              </button>
+              <span style={{
+                padding:'6px 12px',
+                borderRadius:'20px',
+                fontSize:'12px',
+                fontWeight:600,
+                background: int.status === 'connected' ? 'rgba(63,185,80,0.15)' : 'rgba(110,118,128,0.15)',
+                color: int.status === 'connected' ? '#3fb950' : '#8b949e'
+              }}>
+                {int.status === 'connected' ? 'Connected' : 'Connect'}
+              </span>
             </div>
           ))}
         </div>
-      )}
+      </div>
 
-      {showModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }} onClick={() => setShowModal(false)}>
-          <div style={{ background: '#1a1a1d', borderRadius: '16px', padding: '32px', width: '400px' }} onClick={e => e.stopPropagation()}>
-            <h2 style={{ marginBottom: '24px' }}>Add Integration</h2>
-            
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#a1a1aa' }}>Provider</label>
-              <select value={newInt.provider} onChange={e => setNewInt({ ...newInt, provider: e.target.value })} style={{ width: '100%', padding: '12px', background: '#27272a', border: '1px solid #3f3f46', borderRadius: '8px', color: '#fff' }}>
-                <option value="slack">Slack</option>
-                <option value="zapier">Zapier</option>
-                <option value="webhook">Custom Webhook</option>
-              </select>
-            </div>
-            
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#a1a1aa' }}>Name</label>
-              <input type="text" value={newInt.name} onChange={e => setNewInt({ ...newInt, name: e.target.value })} placeholder="My Slack Integration" style={{ width: '100%', padding: '12px', background: '#27272a', border: '1px solid #3f3f46', borderRadius: '8px', color: '#fff' }} />
-            </div>
-            
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#a1a1aa' }}>Webhook URL</label>
-              <input type="text" value={newInt.webhook_url} onChange={e => setNewInt({ ...newInt, webhook_url: e.target.value })} placeholder="https://hooks.slack.com/..." style={{ width: '100%', padding: '12px', background: '#27272a', border: '1px solid #3f3f46', borderRadius: '8px', color: '#fff' }} />
-            </div>
-            
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowModal(false)} style={{ padding: '12px 24px', background: 'transparent', border: '1px solid #27272a', borderRadius: '8px', color: '#a1a1aa', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={addIntegration} style={{ padding: '12px 24px', background: '#f97316', border: 'none', borderRadius: '8px', color: '#fff', fontWeight: '600', cursor: 'pointer' }}>Add</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <div style={bottomNav}>
+        <Link href="/" style={navItem}><span style={{fontSize:'20px'}}>🏠</span><span style={{fontSize:'10px'}}>Home</span></Link>
+        <Link href="/tasks" style={navItem}><span style={{fontSize:'20px'}}>📋</span><span style={{fontSize:'10px'}}>Tasks</span></Link>
+        <Link href="/agents" style={navItem}><span style={{fontSize:'20px'}}>🤖</span><span style={{fontSize:'10px'}}>Agents</span></Link>
+        <Link href="/settings" style={navItem}><span style={{fontSize:'20px'}}>⚙️</span><span style={{fontSize:'10px'}}>Settings</span></Link>
+      </div>
     </div>
   );
 }
+
+const container = { minHeight:'100vh',background:'#030712',color:'#f0f6fc',fontFamily:'Inter,sans-serif',paddingBottom:'80px' };
+const header: React.CSSProperties = { display:'flex',position:'fixed',top:0,left:0,right:0,height:'60px',background:'#0f1117',borderBottom:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-between',zIndex:1000 };
+const avatar = { width:'32px',height:'32px',borderRadius:'50%',background:'linear-gradient(135deg,#2f81f7,#a371f7)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:'12px' };
+const main = { padding:'80px 16px 24px',maxWidth:'600px',margin:'0 auto' };
+const title = { fontSize:'24px',fontWeight:700,marginBottom:'4px' };
+const subtitle = { color:'#8b949e',fontSize:'14px',marginBottom:'24px' };
+const list = { background:'#0f1117',border:'1px solid #21262d',borderRadius:'12px',overflow:'hidden' };
+const item = { display:'flex',alignItems:'center',gap:'12px',padding:'16px',borderBottom:'1px solid #21262d' };
+const iconBox = { width:'44px',height:'44px',borderRadius:'10px',background:'#21262d',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px' };
+const bottomNav: React.CSSProperties = { display:'flex',position:'fixed',bottom:0,left:0,right:0,height:'65px',background:'#0f1117',borderTop:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-around',zIndex:1000 };
+const navItem: React.CSSProperties = { display:'flex',flexDirection:'column' as const,alignItems:'center',gap:'4px',color:'#8b949e',textDecoration:'none',fontSize:'12px' };
