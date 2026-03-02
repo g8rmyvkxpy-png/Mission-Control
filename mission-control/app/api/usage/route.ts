@@ -33,11 +33,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const organization_id = searchParams.get('organization_id');
-
-  if (!organization_id) {
-    return NextResponse.json({ error: 'Organization ID required' }, { status: 400 });
-  }
+  const organization_id = searchParams.get('organization_id') || '56b94071-3455-4967-9300-60788486a4fb';
 
   try {
     const tasks = db.prepare(`

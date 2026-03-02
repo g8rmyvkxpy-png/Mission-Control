@@ -1,16 +1,52 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-const DEMO_LEADS = [
-  { id: '1', name: 'John Doe', email: 'john@techcorp.com', company: 'TechCorp', status: 'qualified', score: 85 },
-  { id: '2', name: 'Sarah Wilson', email: 'sarah@startup.io', company: 'StartupXYZ', status: 'contacted', score: 72 },
-  { id: '3', name: 'Mike Chen', email: 'mike@enterprise.co', company: 'Enterprise Inc', status: 'new', score: 90 },
-];
+interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  service: string;
+  message: string;
+  timestamp: string;
+  status: string;
+}
 
 export default function LeadsPage() {
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchContacts();
+  }, []);
+
+  async function fetchContacts() {
+    try {
+      const response = await fetch('/api/ppventures-contact');
+      const data = await response.json();
+      if (data.contacts) {
+        setContacts(data.contacts.reverse()); // newest first
+      }
+    } catch (err) {
+      console.error('Failed to fetch contacts:', err);
+      setError('Failed to load contacts');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'qualified': return '#3fb950';
+      case 'contacted': return '#2f81f7';
+      case 'new': return '#f0883e';
+      default: return '#8b949e';
+    }
+  };
   return (
     <div className="page">
       <div className="mobile-header" style={{display: 'flex', position: 'fixed', top: 0, left: 0, right: 0, height: 60, background: '#0f1117', borderBottom: '1px solid #21262d', padding: '0 16px', alignItems: 'center', justifyContent: 'space-between', zIndex: 1000}}>
@@ -26,34 +62,44 @@ export default function LeadsPage() {
         </div>
 
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24}}>
-          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>Total</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0'}}>{DEMO_LEADS.length}</p></div>
-          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>Qualified</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0', color: '#3fb950'}}>{DEMO_LEADS.filter(l => l.status === 'qualified').length}</p></div>
-          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>Contacted</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0', color: '#2f81f7'}}>{DEMO_LEADS.filter(l => l.status === 'contacted').length}</p></div>
+          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>Total</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0'}}>{contacts.length}</p></div>
+          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>New</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0', color: '#f0883e'}}>{contacts.filter(c => c.status === 'new').length}</p></div>
+          <div className="card" style={{padding: 20, textAlign: 'center'}}><span style={{fontSize: 12, color: '#8b949e'}}>Contacted</span><p style={{fontSize: 28, fontWeight: 700, margin: '8px 0 0', color: '#2f81f7'}}>{contacts.filter(c => c.status === 'contacted').length}</p></div>
         </div>
 
-        <div className="card" style={{padding: 24}}>
-          <table style={{width: '100%', borderCollapse: 'collapse'}}>
-            <thead>
-              <tr style={{borderBottom: '1px solid #21262d'}}>
-                <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>CONTACT</th>
-                <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>COMPANY</th>
-                <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {DEMO_LEADS.map(lead => (
-                <tr key={lead.id} style={{borderBottom: '1px solid #21262d'}}>
-                  <td style={{padding: '16px 0', display: 'flex', alignItems: 'center', gap: 12}}>
-                    <div style={{width: 40, height: 40, borderRadius: '50%', background: '#21262d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600}}>{lead.name[0]}</div>
-                    <div><p style={{fontWeight: 600, margin: 0}}>{lead.name}</p><p style={{color: '#8b949e', fontSize: 12, margin: 0}}>{lead.email}</p></div>
-                  </td>
-                  <td style={{padding: '16px 0', color: '#8b949e'}}>{lead.company}</td>
-                  <td style={{padding: '16px 0'}}><span style={{padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: lead.status === 'qualified' ? 'rgba(63,185,80,0.15)' : lead.status === 'contacted' ? 'rgba(47,129,247,0.15)' : 'rgba(210,153,34,0.15)', color: lead.status === 'qualified' ? '#3fb950' : lead.status === 'contacted' ? '#2f81f7' : '#d29922'}}>{lead.status}</span></td>
+        {loading ? (
+          <div className="card" style={{padding: 40, textAlign: 'center'}}><p style={{color: '#8b949e'}}>Loading contacts...</p></div>
+        ) : error ? (
+          <div className="card" style={{padding: 40, textAlign: 'center'}}><p style={{color: '#f85149'}}>{error}</p></div>
+        ) : contacts.length === 0 ? (
+          <div className="card" style={{padding: 40, textAlign: 'center'}}><p style={{color: '#8b949e'}}>No contacts yet. Share your PP Ventures site to get leads!</p></div>
+        ) : (
+          <div className="card" style={{padding: 24}}>
+            <table style={{width: '100%', borderCollapse: 'collapse'}}>
+              <thead>
+                <tr style={{borderBottom: '1px solid #21262d'}}>
+                  <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>CONTACT</th>
+                  <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>SERVICE</th>
+                  <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>DATE</th>
+                  <th style={{textAlign: 'left', padding: '12px 0', color: '#8b949e', fontSize: 12, fontWeight: 500}}>STATUS</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {contacts.map(contact => (
+                  <tr key={contact.id} style={{borderBottom: '1px solid #21262d'}}>
+                    <td style={{padding: '16px 0', display: 'flex', alignItems: 'center', gap: 12}}>
+                      <div style={{width: 40, height: 40, borderRadius: '50%', background: '#21262d', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600}}>{contact.name[0]}</div>
+                      <div><p style={{fontWeight: 600, margin: 0}}>{contact.name}</p><p style={{color: '#8b949e', fontSize: 12, margin: 0}}>{contact.email}</p></div>
+                    </td>
+                    <td style={{padding: '16px 0', color: '#8b949e', fontSize: 14}}>{contact.service}</td>
+                    <td style={{padding: '16px 0', color: '#8b949e', fontSize: 14}}>{new Date(contact.timestamp).toLocaleDateString()}</td>
+                    <td style={{padding: '16px 0'}}><span style={{padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: 'rgba(240,136,62,0.15)', color: '#f0883e'}}>{contact.status}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="mobile-nav" style={{display: 'flex', position: 'fixed', bottom: 0, left: 0, right: 0, height: 65, background: '#0f1117', borderTop: '1px solid #21262d', padding: '0 16px', alignItems: 'center', justifyContent: 'space-around', zIndex: 1000}}>

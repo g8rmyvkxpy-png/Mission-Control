@@ -51,25 +51,16 @@ export default function WorkflowsPage() {
           ))}
         </div>
       </div>
-
-      <div style={bottomNav}>
-        <Link href="/" style={navItem}><span style={{fontSize:'20px'}}>🏠</span><span style={{fontSize:'10px'}}>Home</span></Link>
-        <Link href="/tasks" style={navItem}><span style={{fontSize:'20px'}}>📋</span><span style={{fontSize:'10px'}}>Tasks</span></Link>
-        <Link href="/agents" style={navItem}><span style={{fontSize:'20px'}}>🤖</span><span style={{fontSize:'10px'}}>Agents</span></Link>
-        <Link href="/settings" style={navItem}><span style={{fontSize:'20px'}}>⚙️</span><span style={{fontSize:'10px'}}>Settings</span></Link>
-      </div>
     </div>
   );
 }
 
-const container = { minHeight:'100vh',background:'#030712',color:'#f0f6fc',fontFamily:'Inter,sans-serif',paddingBottom:'80px' };
+const container = { minHeight:'100vh',background:'#030712',color:'#f0f6fc',fontFamily:'Inter,sans-serif' };
 const header: React.CSSProperties = { display:'flex',position:'fixed',top:0,left:0,right:0,height:'60px',background:'#0f1117',borderBottom:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-between',zIndex:1000 };
 const avatar = { width:'32px',height:'32px',borderRadius:'50%',background:'linear-gradient(135deg,#2f81f7,#a371f7)',display:'flex',alignItems:'center',justifyContent:'center',fontWeight:600,fontSize:'12px' };
 const main = { padding:'80px 16px 24px',maxWidth:'600px',margin:'0 auto' };
 const title = { fontSize:'24px',fontWeight:700,marginBottom:'4px' };
 const subtitle = { color:'#8b949e',fontSize:'14px',marginBottom:'20px' };
-const addBtn: React.CSSProperties = { width:'100%',padding:'14px',background:'#2f81f7',color:'#fff',border:'none',borderRadius:'10px',fontWeight:600,fontSize:'14px',cursor:'pointer',marginBottom:'20px' };
+const addBtn: React.CSSProperties = { width:'100%',padding:'14px',background:'#2f81f7',color:'#fff',border:'none',borderRadius:'10px',fontWeight:600,fontSize:'14px',cursor:'pointer',marginBottom:'20px',textDecoration:'none',display:'block',textAlign:'center' };
 const list = { background:'#0f1117',border:'1px solid #21262d',borderRadius:'12px',overflow:'hidden' };
 const item = { display:'flex',alignItems:'flex-start',gap:'12px',padding:'16px',borderBottom:'1px solid #21262d' };
-const bottomNav: React.CSSProperties = { display:'flex',position:'fixed',bottom:0,left:0,right:0,height:'65px',background:'#0f1117',borderTop:'1px solid #21262d',padding:'0 16px',alignItems:'center',justifyContent:'space-around',zIndex:1000 };
-const navItem = { display:'flex',flexDirection:'column' as const,alignItems:'center',gap:'4px',color:'#8b949e',textDecoration:'none',fontSize:'12px' };
