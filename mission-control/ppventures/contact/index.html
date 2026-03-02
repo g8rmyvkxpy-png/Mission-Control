@@ -152,6 +152,8 @@
   </footer>
 
   <script>
+    const API_URL = 'http://72.62.231.18:3000/api/ppventures-contact';
+    
     async function handleSubmit(event) {
       event.preventDefault();
       const form = event.target;
@@ -162,25 +164,34 @@
         name: form.name.value,
         email: form.email.value,
         service: form.service.value,
-        message: form.message.value,
-        timestamp: new Date().toISOString()
+        message: form.message.value
       };
       
       submitBtn.disabled = true;
       submitBtn.textContent = 'Sending...';
       
       try {
-        // Store in localStorage for demo (in production, this would go to an API)
-        const submissions = JSON.parse(localStorage.getItem('ppventures_contacts') || '[]');
-        submissions.push(formData);
-        localStorage.setItem('ppventures_contacts', JSON.stringify(submissions));
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(formData)
+        });
         
-        responseEl.className = 'response-message success';
-        responseEl.textContent = 'Thanks for reaching out! We\'ll get back to you within 24 hours.';
-        form.reset();
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+          responseEl.className = 'response-message success';
+          responseEl.textContent = 'Thanks for reaching out! We\'ll get back to you within 24 hours.';
+          form.reset();
+        } else {
+          throw new Error(result.error || 'Submission failed');
+        }
       } catch (error) {
+        console.error('Form submission error:', error);
         responseEl.className = 'response-message error';
-        responseEl.textContent = 'Something went wrong. Please try again or email us directly.';
+        responseEl.textContent = 'Something went wrong. Please try again or email us directly at hello@ppventures.tech';
       }
       
       submitBtn.disabled = false;

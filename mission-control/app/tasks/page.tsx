@@ -8,11 +8,16 @@ export const dynamic = 'force-dynamic';
 interface Task {
   id: string;
   title: string;
+  description?: string;
   status: string;
+  priority?: string;
+  assignedTo?: string;
   agent_name?: string;
   agent_avatar?: string;
-  result?: string;
+  result?: any;
+  error?: string;
   createdAt?: number;
+  completedAt?: number;
 }
 
 export default function TasksPage() {
@@ -20,6 +25,7 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [stats, setStats] = useState({ total: 0, completed: 0, processing: 0, pending: 0, failed: 0 });
 
   const loadTasks = async () => {
@@ -29,12 +35,11 @@ export default function TasksPage() {
       const taskList = data.tasks || [];
       setTasks(taskList);
       
-      // Calculate stats
       setStats({
         total: taskList.length,
         completed: taskList.filter((t: Task) => t.status === 'completed' || t.status === 'done').length,
-        processing: taskList.filter((t: Task) => t.status === 'processing').length,
-        pending: taskList.filter((t: Task) => t.status === 'pending').length,
+        processing: taskList.filter((t: Task) => t.status === 'processing' || t.status === 'in_progress').length,
+        pending: taskList.filter((t: Task) => t.status === 'pending' || t.status === 'assigned').length,
         failed: taskList.filter((t: Task) => t.status === 'failed').length,
       });
     } catch (err) {
@@ -67,15 +72,14 @@ export default function TasksPage() {
       const data = await response.json();
 
       if (data.success) {
-        setMessage(`✅ Executed by ${data.task.agent_name || 'agent'}!`);
+        setMessage(`✅ Created: "${data.task.title}" - ${data.task.agent_name} is working on it!`);
         setTitle('');
-        // Refresh tasks
         loadTasks();
       } else {
         setMessage(`❌ Error: ${data.error || 'Failed'}`);
       }
     } catch (err) {
-      setMessage('❌ Failed to execute');
+      setMessage('❌ Failed to create task');
     } finally {
       setLoading(false);
     }
@@ -86,51 +90,45 @@ export default function TasksPage() {
       completed: '#3fb950',
       done: '#3fb950',
       processing: '#2f81f7',
+      in_progress: '#2f81f7',
       pending: '#d29922',
+      assigned: '#d29922',
       failed: '#f85149',
       review: '#a371f7'
     };
     return colors[status] || '#8b949e';
   };
 
-  const formatTime = (timestamp: number) => {
+  const formatTime = (timestamp?: number) => {
     if (!timestamp) return '';
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = now.getTime() - date.getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    return date.toLocaleDateString();
+    return new Date(timestamp).toLocaleString();
   };
 
   return (
     <div style={{minHeight: '100vh', background: '#030712', color: '#f0f6fc', fontFamily: 'Inter, sans-serif', paddingBottom: '80px'}}>
-      {/* Mobile Header */}
+      {/* Header */}
       <div style={{display: 'flex', position: 'fixed', top: 0, left: 0, right: 0, height: 60, background: '#0f1117', borderBottom: '1px solid #21262d', padding: '0 16px', alignItems: 'center', justifyContent: 'space-between', zIndex: 1000}}>
         <Link href="/" style={{textDecoration: 'none'}}><span style={{fontSize: 24}}>🎯</span></Link>
         <span style={{fontWeight: 700, fontSize: 18}}>Tasks</span>
         <div style={{width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg,#2f81f7,#a371f7)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 12}}>D</div>
       </div>
 
-      {/* Desktop Content */}
       <div style={{padding: '80px 24px 24px', maxWidth: 900, margin: '0 auto'}}>
         {/* Header */}
         <div style={{marginBottom: 32}}>
-          <h1 style={{fontSize: 32, fontWeight: 700, marginBottom: 8}}>Tasks 📋</h1>
-          <p style={{color: '#8b949e', margin: 0}}>Execute AI tasks instantly</p>
+          <h1 style={{fontSize: 32, fontWeight: 700, marginBottom: 8}}>Tasks ⚡</h1>
+          <p style={{color: '#8b949e', margin: 0}}>Create tasks and watch AI agents work on them</p>
         </div>
 
         {/* Create Task */}
         <div style={{background: '#0f1117', borderRadius: 12, padding: 20, marginBottom: 24, border: '1px solid #21262d'}}>
-          <h2 style={{fontSize: 16, fontWeight: 600, marginBottom: 12}}>⚡ New Task</h2>
+          <h2 style={{fontSize: 16, fontWeight: 600, marginBottom: 12}}>Create New Task</h2>
           <form onSubmit={createTask}>
             <input 
               type="text" 
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="What do you need? (e.g., 'Research AI trends in Bangalore')" 
+              placeholder="What do you need? (e.g., 'Add a contact form to my website')" 
               style={{width: '100%', padding: '12px 16px', background: '#030712', border: '1px solid #30363d', borderRadius: 8, color: '#f0f6fc', fontSize: 14, marginBottom: 12, boxSizing: 'border-box'}} 
               required 
             />
@@ -149,13 +147,10 @@ export default function TasksPage() {
                   cursor: loading ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? '⏳ Executing...' : '🚀 Execute'}
+                {loading ? '⏳ Creating...' : '🚀 Create Task'}
               </button>
               {message && (
-                <span style={{
-                  color: message.includes('✅') ? '#3fb950' : '#f85149',
-                  fontSize: 14
-                }}>
+                <span style={{color: message.includes('✅') ? '#3fb950' : '#f85149', fontSize: 14}}>
                   {message}
                 </span>
               )}
@@ -189,7 +184,7 @@ export default function TasksPage() {
 
         {/* Task List */}
         <div style={{background: '#0f1117', borderRadius: 12, padding: 20, border: '1px solid #21262d'}}>
-          <h2 style={{fontSize: 16, fontWeight: 600, marginBottom: 16}}>Recent Tasks</h2>
+          <h2 style={{fontSize: 16, fontWeight: 600, marginBottom: 16}}>Your Tasks</h2>
           
           {tasks.length === 0 ? (
             <div style={{textAlign: 'center', padding: 40, color: '#8b949e'}}>
@@ -197,34 +192,77 @@ export default function TasksPage() {
             </div>
           ) : (
             <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
-              {tasks.slice(0, 20).map((task, i) => (
-                <div key={task.id || i} style={{
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  alignItems: 'center',
-                  padding: '12px 16px', 
-                  background: '#030712', 
-                  borderRadius: 8,
-                  border: '1px solid #21262d'
-                }}>
-                  <div style={{flex: 1}}>
-                    <div style={{fontWeight: 500, marginBottom: 4}}>{task.title}</div>
-                    <div style={{fontSize: 12, color: '#8b949e'}}>
-                      {task.agent_name && `${task.agent_avatar || ''} ${task.agent_name}`}
-                      {task.createdAt && ` • ${formatTime(task.createdAt)}`}
+              {tasks.map((task) => (
+                <div 
+                  key={task.id} 
+                  onClick={() => setSelectedTask(selectedTask?.id === task.id ? null : task)}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '16px', 
+                    background: selectedTask?.id === task.id ? '#1a1f2e' : '#030712', 
+                    borderRadius: 8,
+                    border: '1px solid #21262d'
+                  }}
+                >
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                    <div style={{flex: 1}}>
+                      <div style={{fontWeight: 600, marginBottom: 4}}>{task.title}</div>
+                      <div style={{fontSize: 12, color: '#8b949e'}}>
+                        {task.agent_name && `${task.agent_avatar || ''} ${task.agent_name}`}
+                        {task.createdAt && ` • ${formatTime(task.createdAt)}`}
+                      </div>
                     </div>
+                    <span style={{
+                      padding: '4px 12px', 
+                      borderRadius: 20, 
+                      fontSize: 11, 
+                      fontWeight: 600, 
+                      background: `${getStatusColor(task.status)}20`, 
+                      color: getStatusColor(task.status),
+                      textTransform: 'uppercase'
+                    }}>
+                      {task.status}
+                    </span>
                   </div>
-                  <span style={{
-                    padding: '4px 12px', 
-                    borderRadius: 20, 
-                    fontSize: 11, 
-                    fontWeight: 600, 
-                    background: `${getStatusColor(task.status)}20`, 
-                    color: getStatusColor(task.status),
-                    textTransform: 'uppercase'
-                  }}>
-                    {task.status}
-                  </span>
+                  
+                  {/* Expanded Result */}
+                  {selectedTask?.id === task.id && (
+                    <div style={{marginTop: 16, paddingTop: 16, borderTop: '1px solid #21262d'}}>
+                      {task.error && (
+                        <div style={{color: '#f85149', fontSize: 14}}>Error: {task.error}</div>
+                      )}
+                      
+                      {task.result && (
+                        <div>
+                          <div style={{fontSize: 12, color: '#8b949e', marginBottom: 8}}>RESULT:</div>
+                          {task.result.summary?.overview && (
+                            <div style={{background: '#0f1117', padding: 12, borderRadius: 8, marginBottom: 8}}>
+                              <div style={{fontWeight: 600, marginBottom: 4}}>Overview</div>
+                              <div style={{fontSize: 14, color: '#c9d1d9'}}>{task.result.summary.overview}</div>
+                            </div>
+                          )}
+                          
+                          {task.result.summary?.actions && task.result.summary.actions.length > 0 && (
+                            <div style={{background: '#0f1117', padding: 12, borderRadius: 8, marginBottom: 8}}>
+                              <div style={{fontWeight: 600, marginBottom: 8}}>Actions Taken</div>
+                              {task.result.summary.actions.map((action: string, i: number) => (
+                                <div key={i} style={{fontSize: 13, color: '#8b949e', marginBottom: 4}}>• {action}</div>
+                              ))}
+                            </div>
+                          )}
+                          
+                          {task.result.summary?.results && task.result.summary.results.length > 0 && (
+                            <div style={{background: '#0f1117', padding: 12, borderRadius: 8}}>
+                              <div style={{fontWeight: 600, marginBottom: 8}}>Results</div>
+                              {task.result.summary.results.map((result: string, i: number) => (
+                                <div key={i} style={{fontSize: 13, color: '#3fb950', marginBottom: 4}}>✓ {result}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
