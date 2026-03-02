@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || 'sk-cp-hPi4QnQsjU4Vtn3snMYLUyBff8daKXYSPp98NytYuOPsMa5j46YRQjU992TCIeRVntVel-OlLQ0QStaSAC6vW1KEqeiISp--AIfbPz951JfXu59IiwxVIA4';
-const MINIMAX_API_URL = 'https://api.minimaxi.chat/v1/text/chatcompletion_pro';
-
-// Initialize database
 const dbPath = path.join(process.cwd(), 'data', 'tasks.db');
 let db: Database.Database;
 
@@ -17,42 +13,20 @@ try {
 }
 
 // Agent configurations
-const AGENTS = {
-  scout: {
-    name: 'Scout', role: 'Lead Researcher', specialty: 'Research',
-    systemPrompt: 'You are Scout, a lead research specialist. Your job is to find and qualify potential customers, research topics deeply, and provide actionable insights. Always be thorough and provide sources.',
-    avatar: '🔍', color: '#14b8a6'
-  },
-  ink: {
-    name: 'Ink', role: 'Content Writer', specialty: 'Writing',
-    systemPrompt: 'You are Ink, a professional content writer. Write engaging, well-structured content that resonates with the audience. Focus on clarity and value.',
-    avatar: '✍️', color: '#f59e0b'
-  },
-  blaze: {
-    name: 'Blaze', role: 'Social Media Manager', specialty: 'Social',
-    systemPrompt: 'You are Blaze, a social media expert. Create compelling, engaging posts that drive conversation. Keep it concise and impactful.',
-    avatar: '📱', color: '#ef4444'
-  },
-  builder: {
-    name: 'Builder', role: 'Engineer', specialty: 'Code',
-    systemPrompt: 'You are Builder, a software engineer. Write clean, efficient code. Explain your decisions and provide working solutions.',
-    avatar: '🔨', color: '#8b5cf6'
-  },
-  spark: {
-    name: 'Spark', role: 'Researcher', specialty: 'Analysis',
-    systemPrompt: 'You are Spark, a research analyst. Dive deep into topics, analyze data, and provide comprehensive insights with evidence.',
-    avatar: '💡', color: '#f59e0b'
-  }
+const AGENTS: Record<string, any> = {
+  builder: { name: 'Builder', avatar: '🔨', specialty: 'Code & Build' },
+  scout: { name: 'Scout', avatar: '🔍', specialty: 'Research' },
+  ink: { name: 'Ink', avatar: '✍️', specialty: 'Content' },
+  blaze: { name: 'Blaze', avatar: '📱', specialty: 'Social' },
+  spark: { name: 'Spark', avatar: '💡', specialty: 'Analysis' }
 };
 
-// Auto-assign agent based on keywords
-function assignAgent(title: string, description?: string): string {
-  const text = `${title} ${description || ''}`.toLowerCase();
-  if (text.includes('research') || text.includes('find') || text.includes('search') || text.includes('look up') || text.includes('competitor') || text.includes('ai') || text.includes('jobs') || text.includes('trends')) return 'scout';
-  if (text.includes('write') || text.includes('blog') || text.includes('article') || text.includes('content') || text.includes('post')) return 'ink';
-  if (text.includes('twitter') || text.includes('social') || text.includes('tweet') || text.includes('linkedin')) return 'blaze';
-  if (text.includes('build') || text.includes('code') || text.includes('implement') || text.includes('feature')) return 'builder';
-  if (text.includes('analyze') || text.includes('analysis') || text.includes('trends') || text.includes('report')) return 'spark';
+function assignAgent(title: string): string {
+  const t = title.toLowerCase();
+  if (t.includes('build') || t.includes('code') || t.includes('fix') || t.includes('git') || t.includes('deploy')) return 'builder';
+  if (t.includes('research') || t.includes('find') || t.includes('search') || t.includes('analyze')) return 'scout';
+  if (t.includes('write') || t.includes('blog') || t.includes('content') || t.includes('article')) return 'ink';
+  if (t.includes('twitter') || t.includes('social') || t.includes('post') || t.includes('outreach')) return 'blaze';
   return 'scout';
 }
 
@@ -61,67 +35,42 @@ export async function POST(request: NextRequest) {
     const body = await request.formData();
     const title = body.get('title') as string;
     const description = body.get('description') as string;
-    const organizationId = body.get('organization_id') as string || '56b94071-3455-4967-9300-60788486a4fb';
-    const assignedTo = body.get('assigned_to') as string;
+    const organizationId = body.get('organization_id') as string || 'default';
 
     if (!title) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 });
     }
 
-    // Auto-assign agent
-    const agentId = assignedTo || assignAgent(title, description);
-    const agent = AGENTS[agentId as keyof typeof AGENTS] || AGENTS.scout;
-    
     const taskId = `task_${Date.now()}`;
+    const agentId = assignAgent(title);
+    const agent = AGENTS[agentId] || AGENTS.scout;
     const timestamp = Date.now();
-    
-    // Execute with agent's system prompt
-    let result = '';
-    let status = 'processing';
+
+    // Save task as pending - worker will pick it up
+    if (!db) {
+      console.error('Database not connected');
+      return NextResponse.json({ error: 'Database not connected' }, { status: 500 });
+    }
     
     try {
-      const aiResponse = await fetch(MINIMAX_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${MINIMAX_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: 'MiniMax-Text-01',
-          messages: [
-            { role: 'system', content: agent.systemPrompt },
-            { role: 'user', content: `Task: ${title}${description ? `\n\nDescription: ${description}` : ''}\n\nPlease complete this task and provide your results.` }
-          ],
-          temperature: 0.7,
-          max_tokens: 3000
-        })
-      });
-
-      if (aiResponse.ok) {
-        const data = await aiResponse.json();
-        result = data.choices?.[0]?.message?.content || 'Task executed successfully';
-        status = 'completed';
-      } else {
-        result = `Task executed by ${agent.name}. AI response: ${aiResponse.status}`;
-        status = 'completed';
-      }
-    } catch (aiError) {
-      console.error('Agent execution error:', aiError);
-      result = `Task assigned to ${agent.name}. Executed with warnings.`;
-      status = 'completed';
+      const stmt = db.prepare(`
+        INSERT INTO tasks (id, title, description, status, assigned_to, agent_name, agent_avatar, organization_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      stmt.run(taskId, title, description || '', 'pending', agentId, agent.name, agent.avatar, organizationId, timestamp, timestamp);
+    } catch (dbError) {
+      console.error('Database error:', dbError);
+      return NextResponse.json({ error: 'Database error: ' + String(dbError) }, { status: 500 });
     }
 
-    // Save to SQLite database
-    if (db) {
-      try {
-        const stmt = db.prepare(`
-          INSERT INTO tasks (id, title, description, status, assigned_to, agent_name, agent_avatar, result, organization_id, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
-        stmt.run(taskId, title, description || '', status, agentId, agent.name, agent.avatar, result, organizationId, timestamp, timestamp);
-      } catch (dbError) {
-        console.error('Failed to save task to database:', dbError);
-      }
+    // Trigger worker to process immediately
+    try {
+      await fetch('http://localhost:3000/api/worker', { 
+        method: 'POST',
+        cache: 'no-store'
+      });
+    } catch (workerError) {
+      console.log('Worker not reachable, will be picked up by cron');
     }
 
     return NextResponse.json({
@@ -130,14 +79,14 @@ export async function POST(request: NextRequest) {
         id: taskId,
         title,
         description,
-        status,
+        status: 'pending',
         assigned_to: agentId,
         agent_name: agent.name,
         agent_avatar: agent.avatar,
-        result,
         organization_id: organizationId,
         created_at: new Date(timestamp).toISOString()
-      }
+      },
+      message: `Task created! ${agent.name} will start working on it shortly.`
     });
   } catch (error) {
     console.error('Task creation error:', error);
@@ -149,6 +98,6 @@ export async function GET() {
   return NextResponse.json({ 
     message: 'Use POST to create a task',
     agents: Object.keys(AGENTS),
-    example: { title: 'Research AI trends', description: 'Find latest trends', organization_id: 'org-id' }
+    example: { title: 'Research AI trends', organization_id: 'org-id' }
   });
 }

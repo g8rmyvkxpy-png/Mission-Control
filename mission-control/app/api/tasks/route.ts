@@ -3233,6 +3233,9 @@ startProcessor();
 
 export async function GET(request: Request) {
   try {
+    // Reload tasks from database to get latest
+    loadTasks();
+    
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     const assignee = searchParams.get('assignee');
