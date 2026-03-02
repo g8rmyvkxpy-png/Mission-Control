@@ -23,10 +23,14 @@ const AGENTS: Record<string, any> = {
 
 function assignAgent(title: string): string {
   const t = title.toLowerCase();
-  if (t.includes('build') || t.includes('code') || t.includes('fix') || t.includes('git') || t.includes('deploy')) return 'builder';
-  if (t.includes('research') || t.includes('find') || t.includes('search') || t.includes('analyze')) return 'scout';
-  if (t.includes('write') || t.includes('blog') || t.includes('content') || t.includes('article')) return 'ink';
-  if (t.includes('twitter') || t.includes('social') || t.includes('post') || t.includes('outreach')) return 'blaze';
+  // Builder: code, build, fix, create, add, update, git, deploy
+  if (t.includes('build') || t.includes('code') || t.includes('fix') || t.includes('bug') || t.includes('git') || t.includes('deploy') || t.includes('create') || t.includes('add') || t.includes('update') || t.includes('improve')) return 'builder';
+  // Scout: research, find, search, analyze, look
+  if (t.includes('research') || t.includes('find') || t.includes('search') || t.includes('analyze') || t.includes('look')) return 'scout';
+  // Ink: write, content, blog, article, document
+  if (t.includes('write') || t.includes('blog') || t.includes('content') || t.includes('article') || t.includes('document')) return 'ink';
+  // Blaze: social media, twitter, linkedin, post, outreach
+  if (t.includes('twitter') || t.includes('social') || t.includes('post') || t.includes('outreach') || t.includes('linkedin') || t.includes('instagram')) return 'blaze';
   return 'scout';
 }
 
