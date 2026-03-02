@@ -16,7 +16,6 @@ const navItems = [
   { href: '/leads', label: 'Leads', icon: '🎯' },
   { href: '/contacts', label: 'Contacts', icon: '📒' },
   { href: '/memory', label: 'Memory', icon: '🧠' },
-  { href: '/office', label: 'Office', icon: '🏢' },
   { href: '/automations', label: 'Automations', icon: '⚡' },
 ];
 
