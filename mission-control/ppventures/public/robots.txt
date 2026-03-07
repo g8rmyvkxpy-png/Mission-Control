@@ -1,6 +1,0 @@
-# https://robotstxt.org/robotstxt.html
-User-agent: *
-Disallow:
-
-# Sitemap
-Sitemap: https://ppventures.tech/sitemap.xml

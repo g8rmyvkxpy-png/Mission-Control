@@ -1,0 +1,116 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import Navbar from './components/Navbar';
+import Footer from './components/Footer';
+import AnimatedBackground from './components/AnimatedBackground';
+
+export const dynamic = 'force-dynamic';
+
+export default function Home() {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStatus('loading');
+    
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      if (res.ok) {
+        setStatus('success');
+        setEmail('');
+      } else {
+        setStatus('error');
+      }
+    } catch {
+      setStatus('error');
+    }
+    
+    setTimeout(() => setStatus('idle'), 3000);
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', position: 'relative' }}>
+      <AnimatedBackground />
+      <Navbar />
+      
+      {/* Hero */}
+      <div style={{ 
+        minHeight: '90vh', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        textAlign: 'center',
+        padding: '120px 40px 80px',
+        position: 'relative',
+        zIndex: 1
+      }}>
+        <h1 style={{ fontSize: '72px', fontWeight: '800', lineHeight: '1.1', marginBottom: '24px' }}>
+          Building the autonomous future
+        </h1>
+        <p style={{ fontSize: '22px', color: '#a1a1aa', maxWidth: '600px', marginBottom: '40px' }}>
+          We build AI-powered companies that run 24/7.
+        </p>
+        <div style={{ display: 'flex', gap: '16px' }}>
+          <Link href="/ai-agents" className="btn btn-primary">Meet Our Agents</Link>
+          <Link href="/contact" className="btn btn-secondary">Get Started</Link>
+        </div>
+      </div>
+
+      {/* Newsletter */}
+      <section style={{ padding: '60px 40px', background: '#1a1a1d', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '32px', marginBottom: '12px' }}>Stay Updated</h2>
+          <p style={{ color: '#a1a1aa', marginBottom: '24px' }}>Get the latest on AI agents.</p>
+          
+          <form onSubmit={handleSubscribe}>
+            <div style={{ display: 'flex', gap: '12px', maxWidth: '400px', margin: '0 auto' }}>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email" 
+                required 
+                style={{ flex: 1, marginBottom: 0 }}
+              />
+              <button type="submit" className="btn btn-primary" disabled={status === 'loading'}>
+                {status === 'loading' ? '...' : 'Subscribe'}
+              </button>
+            </div>
+          </form>
+          {status === 'success' && <p style={{ marginTop: '12px', color: '#22c55e' }}>✓ Thanks for subscribing!</p>}
+          {status === 'error' && <p style={{ marginTop: '12px', color: '#ef4444' }}>Something went wrong.</p>}
+        </div>
+      </section>
+
+      {/* Stats */}
+      <section style={{ padding: '80px 40px', borderTop: '1px solid #27272a', borderBottom: '1px solid #27272a', position: 'relative', zIndex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '80px', maxWidth: '800px', margin: '0 auto' }}>
+          <div><div style={{ fontSize: '48px', fontWeight: '700', color: '#f97316' }}>21</div><div style={{ fontSize: '14px', color: '#6b7280' }}>AI Agents</div></div>
+          <div><div style={{ fontSize: '48px', fontWeight: '700', color: '#22c55e' }}>24/7</div><div style={{ fontSize: '14px', color: '#6b7280' }}>Autonomous</div></div>
+          <div><div style={{ fontSize: '48px', fontWeight: '700', color: '#8b5cf6' }}>100%</div><div style={{ fontSize: '14px', color: '#6b7280' }}>AI-Powered</div></div>
+        </div>
+      </section>
+
+      {/* Services */}
+      <section style={{ padding: '80px 40px', position: 'relative', zIndex: 1 }}>
+        <h2 className="section-title">Our Services</h2>
+        <div className="grid" style={{ maxWidth: '1200px', margin: '48px auto 0' }}>
+          <div className="card"><div style={{ fontSize: '40px' }}>🤖</div><h3>AI Agent Development</h3><p>Custom AI agents for your business.</p></div>
+          <div className="card"><div style={{ fontSize: '40px' }}>🚀</div><h3>Venture Building</h3><p>From idea to $1M ARR.</p></div>
+          <div className="card"><div style={{ fontSize: '40px' }}>💡</div><h3>Technical Consulting</h3><p>Expert AI guidance.</p></div>
+        </div>
+      </section>
+
+      <Footer />
+    </div>
+  );
+}
