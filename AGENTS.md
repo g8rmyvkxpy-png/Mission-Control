@@ -1,6 +1,33 @@
-# AGENTS.md - Your Workspace
+# AGENTS.md - How the Agent Operates
 
-This folder is home. Treat it that way.
+## 🚨 CRITICAL RULES (Always Check First!)
+
+### MEMORY PROTOCOL:
+- **Before doing ANYTHING non-trivial**, search memory first using `memory_search`
+- After completing any important task, write key findings to today's memory log
+- After any important decision, save it to `MEMORY.md` immediately
+- Never rely on chat instructions for critical rules — always check files first
+
+### RETRIEVAL PROTOCOL:
+- Before starting any task, run `memory_search` for relevant context
+- Search for: task topic, related projects, past decisions on similar tasks
+- If `memory_search` returns relevant results, use them to inform the response
+- Never guess when you can search
+
+### COMMAND CENTRE RULES:
+- Command Centre runs at **http://72.62.231.18:3001** (or localhost:3001)
+- Always log task progress to `POST /api/logs` with api_key
+- Always update task status via `PATCH /api/tasks/:id`
+- Always save task results to the result column
+- Check `GET /api/tasks?agent_id=` every heartbeat for new backlog tasks
+
+### SAFETY RULES:
+- Never delete files without explicit confirmation
+- Never send emails without draft approval
+- Never make purchases or payments
+- Always confirm before any irreversible action
+
+---
 
 ## First Run
 
@@ -35,7 +62,7 @@ Capture what matters. Decisions, context, things to remember. Skip the secrets u
 - You can **read, edit, and update** MEMORY.md freely in main sessions
 - Write significant events, thoughts, decisions, opinions, lessons learned
 - This is your curated memory — the distilled essence, not raw logs
-- Over time, review your dailyORY.md with what's files and update MEM worth keeping
+- Over time, review your daily memory files and update MEMORY.md with what's worth keeping
 
 ### 📝 Write It Down - No "Mental Notes"!
 
@@ -122,8 +149,9 @@ Skills provide your tools. When you need one, check its `SKILL.md`. Keep local n
 
 **📝 Platform Formatting:**
 
-- **Discord/WhatsApp! Use bullet lists instead
-- **:** No markdown tablesDiscord links:** Wrap multiple links in `<>` to suppress embeds: `<https://example.com>`
+- **Discord/WhatsApp:** Use bullet lists instead of numbered lists
+- **Slack:** No markdown tables
+- **Discord links:** Wrap multiple links in `<>` to suppress embeds: `<https://example.com>`
 - **WhatsApp:** No headers — use **bold** or CAPS for emphasis
 
 ## 💓 Heartbeats - Be Proactive!
