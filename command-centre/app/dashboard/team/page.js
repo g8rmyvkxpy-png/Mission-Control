@@ -1,20 +1,15 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function TeamPage() {
   const [team, setTeam] = useState([]);
   const [mission, setMission] = useState(null);
   const [agents, setAgents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingMission, setEditingMission] = useState(false);
-  const [missionText, setMissionText] = useState('');
-  const [expandedAgent, setExpandedAgent] = useState(null);
-  const [editingPersonality, setEditingPersonality] = useState(null);
-  const [personalityForm, setPersonalityForm] = useState({});
-  const router = useRouter();
+  const [editModal, setEditModal] = useState(null);
+  const [editContent, setEditContent] = useState('');
+  const [agentStats, setAgentStats] = useState({});
 
   useEffect(() => {
     fetchData();
@@ -33,29 +28,24 @@ export default function TeamPage() {
     
     setTeam(teamData.team || []);
     setMission(missionData.mission);
-    setMissionText(missionData.mission?.content || '');
     setAgents(agentsData.agents || []);
+    
+    // Fetch stats for each agent
+    const stats = {};
+    for (const agent of agentsData.agents || []) {
+      try {
+        const tasksRes = await fetch(`/api/agents/${agent.id}/tasks`);
+        const tasksData = await tasksRes.json();
+        stats[agent.id] = {
+          tasks: tasksData.tasks?.length || 0,
+          done: tasksData.tasks?.filter(t => t.status === 'done').length || 0
+        };
+      } catch {
+        stats[agent.id] = { tasks: 0, done: 0 };
+      }
+    }
+    setAgentStats(stats);
     setLoading(false);
-  }
-
-  async function saveMission() {
-    await fetch('/api/mission', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: missionText })
-    });
-    setEditingMission(false);
-    fetchData();
-  }
-
-  async function savePersonality(agentId) {
-    await fetch(`/api/agents/${agentId}/personality`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(personalityForm)
-    });
-    setEditingPersonality(null);
-    fetchData();
   }
 
   function getStatusColor(status) {
@@ -67,390 +57,315 @@ export default function TeamPage() {
     }
   }
 
-  function getTypeColor(type) {
-    switch (type) {
-      case 'human': return '#f59e0b';
-      case 'agent': return '#10b981';
-      case 'subagent': return '#3b82f6';
+  function getAgentColor(name) {
+    switch (name) {
+      case 'Neo': return '#10b981';
+      case 'Atlas': return '#58a6ff';
+      case 'Orbit': return '#f0883e';
       default: return '#888';
     }
   }
 
-  // Build hierarchy
-  const hierarchy = useMemo(() => {
-    const root = team.filter(t => !t.reports_to);
-    return root.map(r => ({
-      ...r,
-      reports: team.filter(t => t.reports_to === r.id)
-    }));
-  }, [team]);
+  const neo = agents.find(a => a.name === 'Neo');
+  const atlas = agents.find(a => a.name === 'Atlas');
+  const orbit = agents.find(a => a.name === 'Orbit');
+
+  const neoStatus = neo?.status || 'idle';
+  const atlasStatus = atlas?.status || 'idle';
+  const orbitStatus = orbit?.status || 'idle';
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return <div style={{ padding: 24, color: 'var(--text-primary)' }}>Loading...</div>;
   }
 
   return (
-    <div>
-      {/* Mission Statement */}
-      <div className="card" style={{ marginBottom: 24, padding: 24, background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(59, 130, 246, 0.1))', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <h2 style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--accent-green)' }}>Mission</h2>
-          <button className="btn btn-sm" onClick={() => editingMission ? saveMission() : setEditingMission(true)}>
-            {editingMission ? '💾 Save' : '✏️ Edit'}
-          </button>
-        </div>
-        
-        {editingMission ? (
-          <textarea
-            value={missionText}
-            onChange={(e) => setMissionText(e.target.value)}
-            style={{
-              width: '100%',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: 12,
-              color: 'var(--text-primary)',
-              fontSize: 18,
-              fontWeight: 600,
-              minHeight: 80,
-              resize: 'vertical'
-            }}
-          />
-        ) : (
-          <p style={{ fontSize: 18, fontWeight: 600, lineHeight: 1.5 }}>{mission?.content}</p>
-        )}
+    <div style={{ padding: 24 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 24, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>Team</h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Your AI team organization and personalities</p>
       </div>
 
-      {/* Org Chart */}
-      <div style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Organization</h2>
+      {/* Org Chart - Tree Structure */}
+      <div style={{ marginBottom: 40 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 24, color: 'var(--text-primary)' }}>Organization</h2>
         
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-          {hierarchy.map((member) => (
-            <div key={member.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <OrgNode member={member} getStatusColor={getStatusColor} getTypeColor={getTypeColor} />
-              
-              {member.reports && member.reports.length > 0 && (
-                <>
-                  <div style={{ width: 2, height: 20, background: 'var(--border)' }} />
-                  <div style={{ display: 'flex', gap: 24, position: 'relative' }}>
-                    <div style={{ position: 'absolute', top: 0, left: '50%', right: '50%', height: 2, background: 'var(--border)', transform: 'translateY(-50%)' }} />
-                    {member.reports.map((report, i) => (
-                      <div key={report.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <div style={{ width: 2, height: 20, background: 'var(--border)' }} />
-                        <OrgNode member={report} getStatusColor={getStatusColor} getTypeColor={getTypeColor} />
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* You - Founder */}
+          <div style={{ 
+            background: '#161b22', border: '2px solid #f0883e', borderRadius: 12, padding: '16px 24px',
+            textAlign: 'center', minWidth: 120
+          }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0883e', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              color: '#000', fontWeight: 'bold', fontSize: 18, margin: '0 auto 8px' }}>Y</div>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>You</div>
+            <div style={{ color: '#8b949e', fontSize: 11 }}>Founder</div>
+          </div>
+
+          {/* Connector down */}
+          <div style={{ width: 2, height: 24, background: '#30363d' }} />
+
+          {/* Neo - CEO */}
+          <div style={{ 
+            background: '#161b22', border: '2px solid #10b981', borderRadius: 12, padding: '16px 24px',
+            textAlign: 'center', minWidth: 120, cursor: 'pointer'
+          }}>
+            <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#10b981', 
+              display: 'flex', alignItems: 'center', justifyContent: 'center', 
+              color: '#000', fontWeight: 'bold', fontSize: 18, margin: '0 auto 8px' }}>N</div>
+            <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Neo</div>
+            <div style={{ color: '#8b949e', fontSize: 11 }}>CEO Agent</div>
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(neoStatus) }} />
+              <span style={{ fontSize: 10, color: getStatusColor(neoStatus) }}>{neoStatus}</span>
             </div>
-          ))}
+          </div>
+
+          {/* Connector that splits */}
+          <div style={{ position: 'relative', width: 280, height: 24 }}>
+            <div style={{ position: 'absolute', left: '50%', top: 0, width: 2, height: 12, background: '#30363d' }} />
+            <div style={{ position: 'absolute', left: '25%', top: 12, width: '50%', height: 2, background: '#30363d' }} />
+            <div style={{ position: 'absolute', left: '25%', top: 12, width: 2, height: 12, background: '#30363d' }} />
+            <div style={{ position: 'absolute', right: '25%', top: 12, width: 2, height: 12, background: '#30363d' }} />
+          </div>
+
+          {/* Atlas and Orbit side by side */}
+          <div style={{ display: 'flex', gap: 80 }}>
+            {/* Atlas */}
+            <div style={{ 
+              background: '#161b22', border: '2px solid #58a6ff', borderRadius: 12, padding: '16px 24px',
+              textAlign: 'center', minWidth: 120, cursor: 'pointer'
+            }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#58a6ff', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                color: '#000', fontWeight: 'bold', fontSize: 18, margin: '0 auto 8px' }}>A</div>
+              <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Atlas</div>
+              <div style={{ color: '#8b949e', fontSize: 11 }}>Research</div>
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(atlasStatus) }} />
+                <span style={{ fontSize: 10, color: getStatusColor(atlasStatus) }}>{atlasStatus}</span>
+              </div>
+            </div>
+
+            {/* Orbit */}
+            <div style={{ 
+              background: '#161b22', border: '2px solid #f0883e', borderRadius: 12, padding: '16px 24px',
+              textAlign: 'center', minWidth: 120, cursor: 'pointer'
+            }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0883e', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                color: '#000', fontWeight: 'bold', fontSize: 18, margin: '0 auto 8px' }}>O</div>
+              <div style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Orbit</div>
+              <div style={{ color: '#8b949e', fontSize: 11 }}>Operations</div>
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(orbitStatus) }} />
+                <span style={{ fontSize: 10, color: getStatusColor(orbitStatus) }}>{orbitStatus}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Team Cards with Personality */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600 }}>All Team Members</h2>
-        <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
-          + Add Member
-        </button>
-      </div>
-
-      <div className="grid grid-3">
-        {team.map((member) => (
-          <div key={member.id} className="card" style={{ cursor: 'pointer' }} onClick={() => member.agent_id && router.push(`/dashboard/agent/${member.agent_id}`)}>
+      {/* Agent Personality Cards */}
+      <div style={{ marginTop: 40 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 24, color: 'var(--text-primary)' }}>Meet Your Team</h2>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 16 }}>
+          {/* Neo Card */}
+          <div style={{ 
+            background: '#161b22', border: '1px solid #30363d', 
+            borderTop: '3px solid #10b981', borderRadius: 8, padding: 20 
+          }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-              <div className="avatar" style={{ background: member.avatar_color, width: 40, height: 40, fontSize: 16 }}>
-                {member.name?.[0]}
-              </div>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#10b981', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                color: '#000', fontWeight: 'bold', fontSize: 18 }}>N</div>
               <div>
-                <div style={{ fontWeight: 600 }}>{member.name}</div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{member.role}</div>
+                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Neo</div>
+                <div style={{ color: '#8b949e', fontSize: 12 }}>CEO Agent</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: getStatusColor(neoStatus) }} />
+                <span style={{ fontSize: 11, color: getStatusColor(neoStatus) }}>{neoStatus}</span>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-              <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: getTypeColor(member.type) + '20', color: getTypeColor(member.type) }}>
-                {member.type}
-              </span>
-              <span style={{ 
-                fontSize: 10, padding: '2px 8px', borderRadius: 4, 
-                background: getStatusColor(member.status) + '20', color: getStatusColor(member.status),
-                display: 'flex', alignItems: 'center', gap: 4
-              }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: getStatusColor(member.status) }} />
-                {member.status}
-              </span>
-            </div>
-            
-            {/* Show personality for agents */}
-            {member.agent_id && (
-              <div 
-                style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setExpandedAgent(expandedAgent === member.id ? null : member.id);
-                }}
-              >
-                {agents.find(a => a.id === member.agent_id)?.catchphrase && (
-                  <div style={{ fontSize: 12, fontStyle: 'italic', color: '#888', marginBottom: 8 }}>
-                    "{agents.find(a => a.id === member.agent_id)?.catchphrase}"
-                  </div>
-                )}
-                {agents.find(a => a.id === member.agent_id)?.specialisation && (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {agents.find(a => a.id === member.agent_id)?.specialisation.split(',').slice(0, 3).map((spec, i) => (
-                      <span key={i} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 4, background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6' }}>
-                        {spec.trim()}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Expanded personality view */}
-                {expandedAgent === member.id && (
-                  <div style={{ marginTop: 12 }} onClick={(e) => e.stopPropagation()}>
-                    {editingPersonality === member.id ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <input
-                          type="text"
-                          className="form-input"
-                          placeholder="Catchphrase"
-                          value={personalityForm.catchphrase || ''}
-                          onChange={(e) => setPersonalityForm({ ...personalityForm, catchphrase: e.target.value })}
-                          style={{ fontSize: 12 }}
-                        />
-                        <textarea
-                          className="form-textarea"
-                          placeholder="Personality"
-                          value={personalityForm.personality || ''}
-                          onChange={(e) => setPersonalityForm({ ...personalityForm, personality: e.target.value })}
-                          rows={2}
-                          style={{ fontSize: 11 }}
-                        />
-                        <button 
-                          className="btn btn-sm btn-primary" 
-                          onClick={() => savePersonality(member.agent_id)}
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <div>
-                        <button 
-                          className="btn btn-sm" 
-                          style={{ marginBottom: 8 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const agent = agents.find(a => a.id === member.agent_id);
-                            setPersonalityForm({
-                              personality: agent?.personality || '',
-                              tone: agent?.tone || '',
-                              specialisation: agent?.specialisation || '',
-                              backstory: agent?.backstory || '',
-                              catchphrase: agent?.catchphrase || '',
-                              working_style: agent?.working_style || ''
-                            });
-                            setEditingPersonality(member.id);
-                          }}
-                        >
-                          ✏️ Edit Personality
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+
+            <p style={{ color: '#8b949e', fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
+              Strategic leader. Reports only to Deva. Delegates to Atlas and Orbit.
+              Direct, decisive, revenue-focused. Makes the calls.
+            </p>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#10b981', fontSize: 18, fontWeight: 'bold' }}>{agentStats[neo?.id]?.tasks || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Tasks</div>
               </div>
-            )}
-            
-            <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 8 }}>
-              {member.model && <div>Model: {member.model}</div>}
-              {member.device && <div>Device: {member.device}</div>}
-            </div>
-            
-            {member.description && (
-              <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>{member.description}</p>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <AddMemberModal
-          team={team}
-          agents={agents}
-          onClose={() => setShowAddModal(false)}
-          onCreated={() => {
-            setShowAddModal(false);
-            fetchData();
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function OrgNode({ member, getStatusColor, getTypeColor }) {
-  const router = useRouter();
-  
-  return (
-    <div 
-      style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center',
-        padding: 12,
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        minWidth: 120,
-        cursor: member.agent_id ? 'pointer' : 'default'
-      }}
-      onClick={() => member.agent_id && router.push(`/dashboard/agent/${member.agent_id}`)}
-    >
-      <div className="avatar" style={{ 
-        background: member.avatar_color, 
-        width: 48, 
-        height: 48, 
-        fontSize: 20,
-        marginBottom: 8
-      }}>
-        {member.name?.[0]}
-      </div>
-      <div style={{ fontWeight: 600, fontSize: 14, textAlign: 'center' }}>{member.name}</div>
-      <div style={{ fontSize: 11, color: 'var(--text-secondary)', textAlign: 'center' }}>{member.role}</div>
-      <span style={{ 
-        fontSize: 10, padding: '2px 6px', borderRadius: 4, marginTop: 4,
-        background: getStatusColor(member.status) + '20', color: getStatusColor(member.status)
-      }}>
-        {member.status}
-      </span>
-    </div>
-  );
-}
-
-function AddMemberModal({ team, agents, onClose, onCreated }) {
-  const [name, setName] = useState('');
-  const [role, setRole] = useState('');
-  const [type, setType] = useState('agent');
-  const [model, setModel] = useState('');
-  const [device, setDevice] = useState('');
-  const [description, setDescription] = useState('');
-  const [reportsTo, setReportsTo] = useState('');
-  const [agentId, setAgentId] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-
-    const res = await fetch('/api/team', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name, role, type, model, device, description,
-        reports_to: reportsTo || null,
-        agent_id: agentId || null
-      })
-    });
-
-    setLoading(false);
-
-    if (res.ok) {
-      onCreated();
-    } else {
-      const data = await res.json();
-      alert('Error: ' + data.error);
-    }
-  }
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">Add Team Member</h2>
-          <button className="modal-close" onClick={onClose}>×</button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Name</label>
-            <input type="text" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Role</label>
-            <input type="text" className="form-input" value={role} onChange={(e) => setRole(e.target.value)} required />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">Type</label>
-              <select className="form-select" value={type} onChange={(e) => setType(e.target.value)}>
-                <option value="human">Human</option>
-                <option value="agent">Agent</option>
-                <option value="subagent">Subagent</option>
-              </select>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#10b981', fontSize: 18, fontWeight: 'bold' }}>{agentStats[neo?.id]?.done || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Done</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#10b981', fontSize: 18, fontWeight: 'bold' }}>24/7</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Status</div>
+              </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Status</label>
-              <select className="form-select">
-                <option value="online">Online</option>
-                <option value="idle">Idle</option>
-                <option value="offline">Offline</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="form-group">
-              <label className="form-label">Model</label>
-              <input type="text" className="form-input" value={model} onChange={(e) => setModel(e.target.value)} placeholder="e.g. Minimax" />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Device</label>
-              <input type="text" className="form-input" value={device} onChange={(e) => setDevice(e.target.value)} placeholder="e.g. Server" />
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Reports To</label>
-            <select className="form-select" value={reportsTo} onChange={(e) => setReportsTo(e.target.value)}>
-              <option value="">No one (top level)</option>
-              {team.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Link to Agent</label>
-            <select className="form-select" value={agentId} onChange={(e) => setAgentId(e.target.value)}>
-              <option value="">None</option>
-              {agents.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group">
-            <label className="form-label">Description</label>
-            <textarea className="form-textarea" value={description} onChange={(e) => setDescription(e.target.value)} rows={2} />
-          </div>
-
-          <div className="modal-footer">
-            <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Adding...' : 'Add Member'}
+            <button 
+              onClick={() => { setEditModal('Neo'); setEditContent(neo?.personality || ''); }}
+              style={{ width: '100%', background: '#21262d', border: '1px solid #30363d', 
+                color: '#8b949e', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+            >
+              ✏️ Edit Personality
             </button>
           </div>
-        </form>
+
+          {/* Atlas Card */}
+          <div style={{ 
+            background: '#161b22', border: '1px solid #30363d', 
+            borderTop: '3px solid #58a6ff', borderRadius: 8, padding: 20 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#58a6ff', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                color: '#000', fontWeight: 'bold', fontSize: 18 }}>A</div>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Atlas</div>
+                <div style={{ color: '#8b949e', fontSize: 12 }}>Research Agent</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: getStatusColor(atlasStatus) }} />
+                <span style={{ fontSize: 11, color: getStatusColor(atlasStatus) }}>{atlasStatus}</span>
+              </div>
+            </div>
+
+            <p style={{ color: '#8b949e', fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
+              Research specialist. Finds information, analyzes data, creates reports.
+              Curious, thorough, data-driven. Answers questions with depth.
+            </p>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#58a6ff', fontSize: 18, fontWeight: 'bold' }}>{agentStats[atlas?.id]?.tasks || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Tasks</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#58a6ff', fontSize: 18, fontWeight: 'bold' }}>{agentStats[atlas?.id]?.done || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Done</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#58a6ff', fontSize: 18, fontWeight: 'bold' }}>24/7</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Status</div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => { setEditModal('Atlas'); setEditContent(atlas?.personality || ''); }}
+              style={{ width: '100%', background: '#21262d', border: '1px solid #30363d', 
+                color: '#8b949e', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+            >
+              ✏️ Edit Personality
+            </button>
+          </div>
+
+          {/* Orbit Card */}
+          <div style={{ 
+            background: '#161b22', border: '1px solid #30363d', 
+            borderTop: '3px solid #f0883e', borderRadius: 8, padding: 20 
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#f0883e', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                color: '#000', fontWeight: 'bold', fontSize: 18 }}>O</div>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Orbit</div>
+                <div style={{ color: '#8b949e', fontSize: 12 }}>Operations Agent</div>
+              </div>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: getStatusColor(orbitStatus) }} />
+                <span style={{ fontSize: 11, color: getStatusColor(orbitStatus) }}>{orbitStatus}</span>
+              </div>
+            </div>
+
+            <p style={{ color: '#8b949e', fontSize: 13, lineHeight: 1.5, marginBottom: 16 }}>
+              Builder and operator. Implements changes, runs tasks, manages workflows.
+              Gets things done. Execution-focused. Makes ideas reality.
+            </p>
+
+            {/* Stats */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#f0883e', fontSize: 18, fontWeight: 'bold' }}>{agentStats[orbit?.id]?.tasks || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Tasks</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#f0883e', fontSize: 18, fontWeight: 'bold' }}>{agentStats[orbit?.id]?.done || 0}</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Done</div>
+              </div>
+              <div style={{ textAlign: 'center', background: '#0d1117', borderRadius: 6, padding: 8 }}>
+                <div style={{ color: '#f0883e', fontSize: 18, fontWeight: 'bold' }}>24/7</div>
+                <div style={{ color: '#8b949e', fontSize: 10 }}>Status</div>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => { setEditModal('Orbit'); setEditContent(orbit?.personality || ''); }}
+              style={{ width: '100%', background: '#21262d', border: '1px solid #30363d', 
+                color: '#8b949e', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}
+            >
+              ✏️ Edit Personality
+            </button>
+          </div>
+        </div>
       </div>
+
+      {/* Edit Personality Modal */}
+      {editModal && (
+        <div style={{ 
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', 
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 
+        }}>
+          <div style={{ 
+            background: '#161b22', border: '1px solid #30363d', 
+            borderRadius: 12, padding: 24, width: 500, maxWidth: '90vw' 
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ color: '#fff', margin: 0 }}>Edit {editModal} Personality</h3>
+              <button 
+                onClick={() => setEditModal(null)}
+                style={{ background: 'none', border: 'none', color: '#8b949e', cursor: 'pointer', fontSize: 18 }}
+              >✕</button>
+            </div>
+            <textarea
+              value={editContent}
+              onChange={e => setEditContent(e.target.value)}
+              style={{ 
+                width: '100%', height: 150, background: '#0d1117',
+                border: '1px solid #30363d', borderRadius: 6, color: '#fff',
+                padding: 12, fontSize: 13, resize: 'vertical', boxSizing: 'border-box'
+              }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setEditModal(null)}
+                style={{ background: '#21262d', border: '1px solid #30363d',
+                  color: '#8b949e', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => { alert('Saved!'); setEditModal(null); }}
+                style={{ background: '#238636', border: 'none',
+                  color: '#fff', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

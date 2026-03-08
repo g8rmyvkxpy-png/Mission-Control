@@ -8,6 +8,13 @@ import {
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
+// Daily targets for each agent
+const DAILY_TARGETS = {
+  'Neo': 4,
+  'Atlas': 6,
+  'Orbit': 6
+};
+
 export default function AnalyticsPage() {
   const [timeRange, setTimeRange] = useState('30');
   const [loading, setLoading] = useState(true);
@@ -49,6 +56,14 @@ export default function AnalyticsPage() {
     setLoading(false);
   }
 
+  // Calculate utilization rate for each agent
+  const getUtilizationRate = (agent) => {
+    const target = DAILY_TARGETS[agent.name] || 4;
+    const completed = agent.tasks_completed || 0;
+    // Cap at 100%
+    return Math.min(Math.round((completed / target) * 100), 100);
+  };
+
   // Format heatmap data for display
   const getHeatmapCell = (day, hour) => {
     const dayData = heatmap.find(d => d.day === day);
@@ -63,6 +78,13 @@ export default function AnalyticsPage() {
     if (count === 0) return 'var(--bg)';
     const intensity = Math.min(count / maxHeatmapValue, 1);
     return `rgba(16, 185, 129, ${0.2 + intensity * 0.8})`;
+  };
+
+  // Calculate overall utilization
+  const getOverallUtilization = () => {
+    if (agentSummary.length === 0) return 0;
+    const totalUtil = agentSummary.reduce((sum, agent) => sum + getUtilizationRate(agent), 0);
+    return Math.round(totalUtil / agentSummary.length);
   };
 
   if (loading) {
@@ -106,17 +128,17 @@ export default function AnalyticsPage() {
           </div>
         </div>
         <div className="stat-card">
+          <div className="stat-icon">⚡</div>
+          <div className="stat-content">
+            <div className="stat-value">{getOverallUtilization()}%</div>
+            <div className="stat-label">Utilization Rate</div>
+          </div>
+        </div>
+        <div className="stat-card">
           <div className="stat-icon">🏆</div>
           <div className="stat-content">
             <div className="stat-value">{overview?.mostProductiveAgent?.agentName || 'N/A'}</div>
             <div className="stat-label">Most Productive</div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon">⏱️</div>
-          <div className="stat-content">
-            <div className="stat-value">{overview?.avgCompletionTimeMinutes || 0}m</div>
-            <div className="stat-label">Avg Completion Time</div>
           </div>
         </div>
       </div>
@@ -274,34 +296,59 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {/* Agent Leaderboard */}
+      {/* Agent Leaderboard with Utilization Bars */}
       <div className="chart-section">
         <h2>🏆 Agent Leaderboard</h2>
         <div className="leaderboard">
-          {agentSummary.map((agent, idx) => (
-            <div key={agent.id} className="leaderboard-item">
-              <div className="leaderboard-rank">
-                {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-              </div>
-              <div 
-                className="leaderboard-avatar"
-                style={{ background: agent.avatar_color || '#10b981' }}
-              >
-                {agent.name?.charAt(0) || '?'}
-              </div>
-              <div className="leaderboard-info">
-                <div className="leaderboard-name">{agent.name}</div>
-                <div className="leaderboard-stats">
-                  <span>✅ {agent.tasks_completed}</span>
-                  <span>🔄 {agent.tasks_in_progress}</span>
-                  <span>📋 {agent.tasks_in_backlog}</span>
+          {agentSummary.map((agent, idx) => {
+            const utilization = getUtilizationRate(agent);
+            const target = DAILY_TARGETS[agent.name] || 4;
+            return (
+              <div key={agent.id} className="leaderboard-item">
+                <div className="leaderboard-rank">
+                  {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                </div>
+                <div 
+                  className="leaderboard-avatar"
+                  style={{ background: agent.avatar_color || '#10b981' }}
+                >
+                  {agent.name?.charAt(0) || '?'}
+                </div>
+                <div className="leaderboard-info">
+                  <div className="leaderboard-name">{agent.name}</div>
+                  <div className="leaderboard-stats">
+                    <span>✅ {agent.tasks_completed}</span>
+                    <span>🔄 {agent.tasks_in_progress}</span>
+                    <span>📋 {agent.tasks_in_backlog}</span>
+                  </div>
+                  {/* Utilization Bar */}
+                  <div className="utilization-bar-container">
+                    <div className="utilization-bar-label">
+                      <span>Daily Target: {agent.tasks_completed}/{target}</span>
+                      <span className="utilization-percent">{utilization}%</span>
+                    </div>
+                    <div className="utilization-bar">
+                      <div 
+                        className="utilization-fill" 
+                        style={{ 
+                          width: `${utilization}%`,
+                          background: utilization >= 100 ? '#10b981' : utilization >= 75 ? '#3b82f6' : utilization >= 50 ? '#f59e0b' : '#ef4444'
+                        }}
+                      />
+                      <div 
+                        className="utilization-target-line" 
+                        style={{ left: '100%' }}
+                        title="Target"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="leaderboard-time">
+                  ⏱️ {agent.avg_completion_time_minutes || 0}m avg
                 </div>
               </div>
-              <div className="leaderboard-time">
-                ⏱️ {agent.avg_completion_time_minutes || 0}m avg
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {agentSummary.length === 0 && (
             <div className="no-data">No agents found</div>
           )}
@@ -386,7 +433,7 @@ export default function AnalyticsPage() {
           width: 100%;
           min-height: 300px;
         }
-                .no-data {
+        .no-data {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -501,10 +548,47 @@ export default function AnalyticsPage() {
           gap: 12px;
           font-size: 13px;
           color: var(--text-muted);
+          margin-bottom: 8px;
         }
         .leaderboard-time {
           font-size: 13px;
           color: var(--text-muted);
+        }
+        
+        /* Utilization Bar */
+        .utilization-bar-container {
+          margin-top: 8px;
+        }
+        .utilization-bar-label {
+          display: flex;
+          justify-content: space-between;
+          font-size: 11px;
+          color: var(--text-muted);
+          margin-bottom: 4px;
+        }
+        .utilization-percent {
+          font-weight: 600;
+          color: var(--text);
+        }
+        .utilization-bar {
+          position: relative;
+          height: 8px;
+          background: var(--bg);
+          border-radius: 4px;
+          overflow: visible;
+        }
+        .utilization-fill {
+          height: 100%;
+          border-radius: 4px;
+          transition: width 0.3s ease;
+        }
+        .utilization-target-line {
+          position: absolute;
+          top: -2px;
+          width: 2px;
+          height: 12px;
+          background: var(--text-muted);
+          opacity: 0.5;
         }
         
         .analytics-loading {

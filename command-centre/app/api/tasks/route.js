@@ -83,7 +83,7 @@ export async function PATCH(request) {
     const taskId = searchParams.get('id');
     const body = await request.json();
     
-    const { status, title, description, priority, assigned_to, result } = body;
+    const { status, title, description, priority, assigned_to, result, project_id } = body;
     
     const updateData = {};
     if (status) updateData.status = status;
@@ -92,6 +92,7 @@ export async function PATCH(request) {
     if (priority) updateData.priority = priority;
     if (assigned_to) updateData.assigned_to = assigned_to;
     if (result !== undefined) updateData.result = result;
+    if (project_id !== undefined) updateData.project_id = project_id;
     
     const { data, error } = await supabaseAdmin
       .from('tasks')

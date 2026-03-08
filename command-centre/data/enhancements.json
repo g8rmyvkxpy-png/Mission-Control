@@ -1,0 +1,17 @@
+[
+  {
+    "id": "25206a73-adfb-4598-adf1-c5d48dec5f25",
+    "page": "homepage",
+    "file_path": "app/page.tsx",
+    "issue": "Headline could be more specific",
+    "improvement": "Change headline to include AI agents",
+    "status": "in_progress",
+    "agent_id": null,
+    "priority": "high",
+    "impact": "high",
+    "before_content": null,
+    "after_content": null,
+    "implemented_at": null,
+    "created_at": "2026-03-08T15:10:28.245Z"
+  }
+]

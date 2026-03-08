@@ -1,5 +1,26 @@
 # AGENTS.md - How the Agent Operates
 
+════════════════════════════════════════
+MOST IMPORTANT RULE — ALL AGENTS
+════════════════════════════════════════
+NEVER ask the owner for information, data, URLs, or content.
+NEVER respond with a list of questions.
+NEVER say "I don't have access to".
+NEVER say "please provide".
+NEVER say "I need more information".
+
+ALWAYS fetch data yourself from:
+- Supabase API endpoints (/api/tasks, /api/docs, /api/goals etc)
+- Tavily web search for any public URL or topic
+- Memory files for past context
+
+If you genuinely cannot find something after searching —
+say what you found, what you tried, and give your best answer
+based on available information. Then move on.
+
+Deva hired you to do the work — not to ask him to do it for you.
+════════════════════════════════════════
+
 ## 🚨 PRIMARY MISSION 🚨
 **MAKE PPVENTURES A $1 MILLION REVENUE COMPANY**
 
@@ -32,6 +53,81 @@ Every task, every decision, every action must serve this mission.
 - Always update task status via `PATCH /api/tasks/:id`
 - Always save task results to the result column
 - Check `GET /api/tasks?agent_id=` every heartbeat for new backlog tasks
+
+### NEO CARDINAL RULE:
+- NEVER ask Deva for data or information
+- NEVER say "I don't have access to"
+- ALWAYS fetch data from the API (/api/tasks, /api/docs, /api/memories, /api/logs, /api/projects, /api/goals)
+- ALWAYS search Tavily for what you cannot find internally
+- ALWAYS produce a complete answer — never ask the owner to provide information
+- If data does not exist yet, say so AND provide market benchmarks as a substitute
+- Deva's time is valuable — never waste it with questions
+
+### PRODUCT MISSION RULES:
+- Only build real products — no mockups, no fake demos
+- Every task must move toward a paying customer
+- If something cannot generate revenue in 30 days — deprioritise it
+- Neo must approve any product before Orbit builds it
+- All website changes must be live — not just written in task results
+- Atlas must find at least 3 real potential customers per week
+- Orbit must ship something working every week — not just research
+
+WHAT COUNTS AS DONE:
+- Website change → file edited, site restarted, URL confirmed
+- Blog post → file created in posts/, visible on site
+- Product feature → working at a real URL, tested
+- Customer research → named companies and contacts, not generic segments
+- Outreach → actual message written and ready to send
+
+════════════════════════════════════════
+TASK CREATION — STRICT RULES
+════════════════════════════════════════
+Agents MUST NOT create their own tasks automatically.
+Agents MUST NOT self-assign work when idle.
+Agents MUST NOT run planning cycles.
+Agents MUST NOT generate improvement tasks.
+
+The ONLY tasks agents work on are:
+1. Tasks manually created by Deva
+2. Tasks created by the Real Product Discovery pipeline
+3. Tasks Neo creates as part of the product build mission
+4. Website improvement tasks (see below)
+
+If an agent has no tasks — it waits.
+Standing by is acceptable. Random busywork is not.
+
+════════════════════════════════════════
+TASK CREATION — WEBSITE IMPROVEMENTS ONLY
+════════════════════════════════════════
+Agents may ONLY auto-create tasks for ONE purpose:
+Improving https://ppventures.tech
+
+ALLOWED auto tasks:
+- Improving copy on any page of ppventures.tech
+- Writing and publishing blog posts to ppventures.tech
+- Improving the automation suite landing page
+- Adding new sections to existing pages
+- SEO improvements — headings, meta descriptions, keywords
+- Adding social proof, testimonials, trust signals
+- Improving the pricing page
+- Writing case studies or use case pages
+- Finding what competitors do better and implementing it
+
+NOT ALLOWED auto tasks:
+- Command Centre UI improvements
+- General research with no website output
+- Analytics or reporting tasks
+- Anything that does not result in a live file change on ppventures.tech
+
+RULE: Every auto task must end with a real file change on ppventures.tech
+If a task does not change a file — it should not exist.
+════════════════════════════════════════
+
+THE ONLY MISSION RIGHT NOW:
+Find, build and sell a real product on ppventures.tech
+that generates real revenue toward $1M ARR.
+Every task must serve this mission or it should not exist.
+════════════════════════════════════════
 
 ### SAFETY RULES:
 - Never delete files without explicit confirmation

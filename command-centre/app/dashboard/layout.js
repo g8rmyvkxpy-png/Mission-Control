@@ -42,10 +42,11 @@ export default function DashboardLayout({ children }) {
   const moreTabs = [
     { id: 'analytics', label: 'Analytics', icon: '📊', href: '/dashboard/analytics' },
     { id: 'memory', label: 'Memory', icon: '💾', href: '/dashboard/memory' },
+    { id: 'website', label: 'Website', icon: '🌐', href: '/dashboard/website' },
     { id: 'docs', label: 'Docs', icon: '📄', href: '/dashboard/docs' },
     { id: 'videos', label: 'Videos', icon: '🎬', href: '/dashboard/videos' },
     { id: 'office', label: 'Office', icon: '🏢', href: '/dashboard/office' },
-    { id: 'calendar', label: 'Cron Jobs', icon: '⏰', href: '/dashboard/calendar' },
+    { id: 'calendar', label: 'Crons', icon: '⏰', href: '/dashboard/calendar' },
   ];
 
   // Check mobile viewport

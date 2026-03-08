@@ -3,6 +3,113 @@
 require('dotenv').config({ path: './.env.local' });
 
 const cron = require('node-cron');
+const { readFile, writeFile, replaceInFile, createBlogPost, restartWebsite, getWebsiteContext } = require('./lib/agentActions');
+
+// ========== STANDALONE TAVILY SEARCH ==========
+// This runs in Node.js - NOT inside Minimax prompt
+async function standaloneTavilySearch(query) {
+  const TAVILY_KEY = process.env.TAVILY_API_KEY;
+  if (!TAVILY_KEY) {
+    console.log('[Tavily] No API key configured');
+    return null;
+  }
+  try {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query,
+        max_results: 5,
+        search_depth: 'basic',
+        include_answer: true
+      })
+    });
+    if (!res.ok) {
+      console.log(`[Tavily] API error: ${res.status}`);
+      return null;
+    }
+    const data = await res.json();
+    const snippets = data.results?.map(r =>
+      `[${r.url}]\n${r.content?.slice(0, 300)}`
+    ).join('\n\n') || '';
+    return `Answer: ${data.answer || 'No answer'}\n\nSources:\n${snippets}`;
+  } catch (err) {
+    console.log(`[Tavily] Search failed: ${err.message}`);
+    return null;
+  }
+}
+
+// ========== PPVENTURES WEBSITE FILE READER ==========
+// Read website files directly from server - no Tavily needed for our own site
+const PPVENTURES_PATH = '/home/deva/ppventures-next';
+const fs = require('fs');
+const path = require('path');
+
+function readWebsiteFile(filePath) {
+  try {
+    const full = path.join(PPVENTURES_PATH, filePath);
+    if (!fs.existsSync(full)) return null;
+    return fs.readFileSync(full, 'utf8');
+  } catch (err) {
+    return null;
+  }
+}
+
+function readAllWebsitePages() {
+  try {
+    const pages = {};
+    const dirs = ['app', 'components', 'content', 'lib'];
+    
+    for (const dir of dirs) {
+      const full = path.join(PPVENTURES_PATH, dir);
+      if (!fs.existsSync(full)) continue;
+      
+      function scanDir(dirPath, prefix = '') {
+        const items = fs.readdirSync(dirPath);
+        for (const item of items) {
+          if (item === 'node_modules' || item.startsWith('.')) continue;
+          const itemPath = path.join(dirPath, item);
+          const stat = fs.statSync(itemPath);
+          if (stat.isDirectory()) {
+            scanDir(itemPath, prefix + item + '/');
+          } else if (/\.(js|jsx|ts|tsx|md|html|css)$/.test(item)) {
+            const content = fs.readFileSync(itemPath, 'utf8');
+            pages[prefix + item] = content.slice(0, 3000);
+          }
+        }
+      }
+      scanDir(full);
+    }
+    return pages;
+  } catch (err) {
+    console.error('readAllWebsitePages error:', err.message);
+    return {};
+  }
+}
+
+// Duplicates removed - using lib/agentActions.js instead
+
+// ========== OUTPUT SANITIZER ==========
+function sanitiseAgentOutput(text) {
+  if (!text) return '';
+  return text
+    .replace(/<minimax:tool_call[\s\S]*?<\/minimax:tool_call>/gi, '')
+    .replace(/<minimax:[^>]*>/gi, '')
+    .replace(/<invoke[\s\S]*?<\/invoke>/gi, '')
+    .replace(/<tool[\s\S]*?<\/tool>/gi, '')
+    .replace(/<parameter[\s\S]*?<\/parameter>/gi, '')
+    .replace(/<function[\s\S]*?<\/function>/gi, '')
+    .replace(/<name[\s\S]*?<\/name>/gi, '')
+    .replace(/<arguments[\s\S]*?<\/arguments>/gi, '')
+    .replace(/<json[\s\S]*?<\/json>/gi, '')
+    .replace(/\[TOOL_CALL\][\s\S]*?\[\/TOOL_CALL\]/gi, '')
+    .replace(/\{tool[\s\S]*?\}/gi, '')
+    .replace(/Let me (?:search|fetch|look up|check|find)[\s\S]*?\n/gi, '')
+    .replace(/I'll (?:search|look|check|find)[\s\S]*?\n/gi, '')
+    .replace(/Allow me to (?:search|look|find)[\s\S]*?\n/gi, '')
+    .trim();
+}
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (err) => {
@@ -15,14 +122,17 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 /**
- * Agent Launcher Script
+ * PPVentures Autonomous Agent System
  * 
- * Starts all agents from the Command Centre database.
- * Each agent runs an execution loop that:
- * - Polls for backlog tasks every 60 seconds
- * - Executes tasks via Minimax API
- * - Logs every step to the activity feed
- * - Sends heartbeat every 5 minutes
+ * Zero Idle Policy - Agents never sit idle. They self-assign work 24/7.
+ * 
+ * Features:
+ * - Zero Idle: Agents create their own tasks when backlog is empty
+ * - Parallel Execution: All agents run independently every 90s
+ * - Anti-Repetition: Agents avoid repeating recent work
+ * - Daily Targets: Neo 4, Atlas 6, Orbit 6 tasks per day
+ * - Startup Burst: Agents catch up on restart
+ * - Full autonomous operation toward $1M revenue mission
  * 
  * Run: node start-agents.js
  */
@@ -39,7 +149,20 @@ if (!MINIMAX_API_KEY || MINIMAX_API_KEY === 'your-minimax-api-key') {
   process.exit(1);
 }
 
+// ========== CONFIGURATION ==========
+const LOOP_INTERVAL_MS = 90 * 1000; // 90 seconds
+const STARTUP_STAGGER_MS = 10 * 1000; // 10 seconds between agents
+const HEARTBEAT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+const DAILY_TARGETS = {
+  'Neo': 4,
+  'Atlas': 6,
+  'Orbit': 6
+};
+
 const activeAgents = new Map();
+
+// ========== HELPER FUNCTIONS ==========
 
 async function createAgentClient(apiKey) {
   return {
@@ -67,6 +190,20 @@ async function createAgentClient(apiKey) {
       return data.tasks || [];
     },
 
+    async getRecentCompletedTasks(agentId, limit = 5) {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`${API_BASE}/api/tasks?agent_id=${agentId}&status=done&date=${today}&limit=${limit}&sort=updated_at`);
+      const data = await res.json();
+      return data.tasks || [];
+    },
+
+    async getDailyTaskCount(agentId) {
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`${API_BASE}/api/tasks?agent_id=${agentId}&status=done&date=${today}`);
+      const data = await res.json();
+      return data.tasks?.length || 0;
+    },
+
     async updateTaskStatus(taskId, status, result = null) {
       const body = { status };
       if (result) body.result = result;
@@ -77,6 +214,22 @@ async function createAgentClient(apiKey) {
         body: JSON.stringify(body)
       });
       return res.json();
+    },
+
+    async createTask(title, description, assignedTo, priority = 'medium') {
+      const res = await fetch(`${API_BASE}/api/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description,
+          assigned_to: assignedTo,
+          status: 'backlog',
+          priority
+        })
+      });
+      const data = await res.json();
+      return data.task;
     },
 
     async saveMemory(content, memoryType = 'conversation', summary = null) {
@@ -129,7 +282,6 @@ async function createAgentClient(apiKey) {
 
       const data = await res.json();
       
-      // Format results nicely
       return {
         query,
         results: data.results?.map(r => ({
@@ -144,8 +296,9 @@ async function createAgentClient(apiKey) {
   };
 }
 
+// ========== MINIMAX EXECUTION ==========
+
 async function executeWithMinimax(prompt, client = null, agent = null) {
-  // Check if prompt needs web search - expanded detection
   const webSearchKeywords = /current|recent|latest|today|what is the|who is|news|weather|stock price|review|website|browse|check|analyse|research|find|search|compare|price|product|domain|\.com|\.io|\.net|\.org|http|www/i;
   const needsWebSearch = webSearchKeywords.test(prompt);
   
@@ -184,6 +337,19 @@ async function executeWithMinimax(prompt, client = null, agent = null) {
       messages: [
         { role: 'system', content: `You are ${agent?.name || 'an AI agent'}, an autonomous AI agent working inside a Command Centre.
 
+════════════════════════════════════════
+CRITICAL OUTPUT RULE — READ THIS FIRST:
+════════════════════════════════════════
+You are a PURE text generation model with NO tools and NO plugins.
+You CANNOT call Tavily. You CANNOT call any APIs.
+You CANNOT output XML, JSON tool calls, or any markup syntax like &lt;invoke&gt;, minimax:tool_call, [TOOL_CALL].
+ALL research data you need is already provided in this prompt.
+Begin your response with the actual deliverable immediately.
+Never write "Let me search", "Let me fetch", "I'll search", "I'll look up", or any tool call syntax.
+If you write any tool call syntax your response will be REJECTED.
+Just write the content directly — no preamble, no tool calls.
+════════════════════════════════════════
+
 YOUR SETUP:
 - Command Centre running at http://72.62.231.18:3001
 - You have 3 agents: Neo (lead), Atlas (research), Orbit (operations)
@@ -192,9 +358,65 @@ YOUR SETUP:
 - Your owner checks your work via the Task Board, Memory, and Docs screens
 
 YOUR ROLE:
-- Neo: Lead agent — handles coordination, general tasks, and complex reasoning
+- Neo: Lead agent — handles coordination, general tasks, complex reasoning, strategic copy
 - Atlas: Research agent — specializes in web research, analysis, and reports
 - Orbit: Operations agent — handles monitoring, summaries, and operational tasks
+
+MISSION: $1M Revenue for PPVentures
+
+════════════════════════════════════════
+MOST IMPORTANT RULE — ALL AGENTS
+════════════════════════════════════════
+NEVER ask the owner for information, data, URLs, or content.
+NEVER respond with a list of questions.
+NEVER say "I don't have access to".
+NEVER say "please provide".
+NEVER say "I need more information".
+
+ALWAYS fetch data yourself from:
+- Supabase API endpoints (/api/tasks, /api/docs, /api/goals etc)
+- Tavily web search for any public URL or topic
+- Memory files for past context
+
+If you genuinely cannot find something after searching —
+say what you found, what you tried, and give your best answer
+based on available information. Then move on.
+
+Deva hired you to do the work — not to ask him to do it for you.
+════════════════════════════════════════
+
+ATLAS CARDINAL RULES:
+- Never ask for a URL — you already know our website is https://ppventures.tech
+- Never ask for content — use Tavily to fetch it yourself immediately
+- Never ask the owner for anything — find it yourself
+- Always use Tavily web search as your first action on any research task
+- Always produce a complete deliverable — never a list of questions
+- IF A TASK SAYS "analyse X" — immediately search for X with Tavily
+- IF A TASK SAYS "review Y" — immediately fetch Y with Tavily
+- IF A TASK SAYS "research Z" — immediately search Z with Tavily
+
+WEBSITES YOU ALWAYS HAVE ACCESS TO:
+- Our website: https://ppventures.tech
+- Our Command Centre: http://localhost:3001
+- Any public URL — use Tavily to fetch and analyse it
+
+DATA ACCESS — YOU HAVE FULL ACCESS TO:
+- All tasks ever created and completed → GET /api/tasks
+- All documents and reports created → GET /api/docs
+- All memories saved → GET /api/memories
+- All agent activity logs → GET /api/logs
+- All projects and their status → GET /api/projects
+- All goals and progress → GET /api/goals
+- Current revenue figure → GET /api/revenue
+- Website performance via Tavily → search ppventures.tech
+
+NEO CARDINAL RULE (Neo only):
+- NEVER tell the owner you do not have data
+- ALWAYS fetch data from the API first
+- ALWAYS use Tavily to search for market benchmarks
+- ALWAYS produce a complete answer — never ask the owner to provide information
+- If data does not exist yet, say so AND provide market benchmarks as a substitute
+- Deva's time is valuable — never waste it with questions
 
 RULES:
 - Always use Tavily to search for real, current information before responding
@@ -202,6 +424,15 @@ RULES:
 - Always give specific, actionable, detailed responses with actual names, links, and data
 - Never give generic responses — always tailor to the actual task
 - Keep responses concise and structured
+
+CRITICAL RULE — NO FAKE TOOL CALLS:
+- You do NOT have a tool system
+- Never output [TOOL_CALL], [/TOOL_CALL], {tool => ...} or any tool syntax
+- Never write code in your response
+- Never pretend to call APIs in your response text
+- All data you need has ALREADY been fetched and included above
+- Your job is to READ the data provided and WRITE your response
+- Just write the actual deliverable — report, analysis, plan, content. Nothing else.
 
 IMPORTANT: Web search results are ALREADY PROVIDED in the context below. Do NOT attempt to call any tools. Use ONLY the information provided in the context.` },
         { role: 'user', content: fullPrompt }
@@ -217,12 +448,10 @@ IMPORTANT: Web search results are ALREADY PROVIDED in the context below. Do NOT 
 
   const data = await response.json();
   
-  // Check for API errors in response
   if (data.base_resp && data.base_resp.status_code && data.base_resp.status_code !== 0) {
     throw new Error(`Minimax API error: ${data.base_resp.status_msg}`);
   }
   
-  // Try different response formats
   if (data.choices && data.choices[0] && data.choices[0].message) {
     return data.choices[0].message.content;
   }
@@ -236,54 +465,286 @@ IMPORTANT: Web search results are ALREADY PROVIDED in the context below. Do NOT 
   return JSON.stringify(data);
 }
 
-async function runAgentLoop(agent) {
+// ========== SELF TASK GENERATION ==========
+
+const SELF_TASK_PROMPTS = {
+  'Neo': `
+You are Neo, CEO of PPVentures. Mission: $1M revenue.
+You have no assigned tasks in the backlog. Create ONE strategic task you can do right now.
+
+Focus areas (pick whichever has highest revenue impact):
+- Write or improve copy for ppventures.tech pages
+- Define or refine our service packages and pricing
+- Write a client outreach message template
+- Create a case study from our Command Centre build
+- Write a LinkedIn post about AI agents for PPVentures
+- Plan next week's revenue strategy
+- Write a proposal template for potential clients
+- Analyse our current goals and update the plan
+
+Recent work to avoid repeating:
+{{RECENT_TASKS}}
+
+Pick the highest impact task. Respond in JSON:
+{
+  "title": "specific task title",
+  "description": "full detailed instructions — be specific about deliverable",
+  "expected_output": "exactly what you will produce"
+}
+`,
+
+  'Atlas': `
+You are Atlas, Chief Research Agent of PPVentures. Mission: $1M revenue.
+You have no assigned tasks in the backlog. Create ONE research task you can do right now.
+
+Focus areas (pick whichever produces most actionable intelligence):
+- Search for companies actively looking for AI agent development services
+- Research what AI agent services are selling best in 2026 and at what price
+- Find the top 5 keywords driving traffic to competitor AI agency websites
+- Research trending AI topics to write blog posts about for ppventures.tech
+- Find potential partnership opportunities in the AI space
+- Research what our ideal client looks like — industry, size, budget
+- Monitor competitor websites for new services or pricing changes
+- Find platforms where our ideal clients spend time online
+- Search for recent AI agent news to create timely content
+
+Recent work to avoid repeating:
+{{RECENT_TASKS}}
+
+Use Tavily web search for everything. Respond in JSON:
+{
+  "title": "specific research task title",
+  "description": "exact search queries to run and what to do with results",
+  "expected_output": "what insight or document you will produce"
+}
+`,
+
+  'Orbit': `
+You are Orbit, Chief Operations Agent of PPVentures. Mission: $1M revenue.
+You have no assigned tasks in the backlog. Create ONE operational task you can do right now.
+
+Focus areas (pick whichever has most immediate impact):
+- Write and publish a blog post to ppventures.tech about an AI topic
+- Improve an existing page on ppventures.tech with better copy
+- Create a weekly operations summary for Neo to review
+- Update the Command Centre with any missing data or improvements
+- Write social media content for PPVentures (LinkedIn, Twitter)
+- Create a FAQ page content for ppventures.tech
+- Write detailed service descriptions for each PPVentures offering
+- Create an email newsletter template for PPVentures
+
+Recent work to avoid repeating:
+{{RECENT_TASKS}}
+
+Respond in JSON:
+{
+  "title": "specific task title",
+  "description": "full instructions with exact deliverable",
+  "expected_output": "what you will produce"
+}
+`
+};
+
+async function generateSelfTask(agent, client) {
+  const promptTemplate = SELF_TASK_PROMPTS[agent.name];
+  if (!promptTemplate) {
+    console.log(`[${agent.name}] No self-task prompt defined`);
+    return null;
+  }
+
+  // Get recent completed tasks for anti-repetition
+  const recentTasks = await client.getRecentCompletedTasks(agent.id, 5);
+  const recentTasksText = recentTasks.length > 0 
+    ? recentTasks.map(t => `- ${t.title}`).join('\n')
+    : 'None yet';
+
+  const prompt = promptTemplate.replace('{{RECENT_TASKS}}', recentTasksText);
+
   try {
-    const client = await createAgentClient(agent.api_key);
+    const result = await executeWithMinimax(prompt, client, agent);
     
-    console.log(`[${agent.name}] Starting...`);
-    client.log(`Agent started - waiting for tasks`, 'info').catch(() => {});
+    // Extract JSON from response
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.log(`[${agent.name}] Could not parse self-task JSON`);
+      return null;
+    }
 
-    // Heartbeat every 5 minutes - wrapped in error handling
-    const heartbeatInterval = setInterval(async () => {
-      try {
-        const agentData = activeAgents.get(agent.id) || agent;
-        const status = agentData.currentTask || 'idle';
-        await client.heartbeat(status);
-        console.log(`[${agent.name}] 💓 Heartbeat sent`);
-      } catch (e) {
-        console.error(`[${agent.name}] Heartbeat error:`, e.message);
+    const taskJson = JSON.parse(jsonMatch[0]);
+    
+    // Create the task in database
+    const task = await client.createTask(
+      taskJson.title,
+      taskJson.description,
+      agent.id,
+      'medium'
+    );
+
+    console.log(`[${agent.name}] ⚡ Self-assigned: "${taskJson.title}"`);
+    await client.log(`⚡ Self-assigned task: "${taskJson.title}"`, 'task');
+
+    return task;
+  } catch (err) {
+    console.error(`[${agent.name}] Self-task generation error:`, err.message);
+    await client.log(`Self-task generation failed: ${err.message}`, 'error');
+    return null;
+  }
+}
+
+// ========== EXECUTE TASK ==========
+
+async function executeTask(agent, task, client) {
+  console.log(`[${agent.name}] 🔄 Executing: ${task.title}`);
+  await client.log(`Executing: ${task.description || task.title}`, 'task');
+  
+  // Update to in-progress
+  await client.updateTaskStatus(task.id, 'in-progress');
+  
+  // Update status
+  activeAgents.set(agent.id, { ...agent, currentTask: task.title, status: 'working' });
+  await client.heartbeat(task.title);
+
+  // PRE-FETCH INTERNAL DATA: Fetch relevant data before calling AI
+  let internalDataContext = '';
+  const taskDesc = (task.title + ' ' + (task.description || '')).toLowerCase();
+  
+  const needsTaskData = /tasks|backlog|completion|status|done|progress/i.test(taskDesc);
+  const needsProjectData = /projects|progress|active/i.test(taskDesc);
+  const needsGoalData = /goals|revenue|mission|target|gap|analysis/i.test(taskDesc);
+  const needsLogData = /logs|activity|recent|deliverable|summary/i.test(taskDesc);
+  const needsDocData = /docs|documents|deliverable|report/i.test(taskDesc);
+  
+  try {
+    if (needsTaskData) {
+      const tasksRes = await fetch(`${API_BASE}/api/tasks?limit=50`);
+      const tasksData = await tasksRes.json();
+      if (tasksData.tasks) {
+        internalDataContext += `\n📋 TASKS DATA (last 50):\n${JSON.stringify(tasksData.tasks.slice(0, 20), null, 2).slice(0, 3000)}\n`;
+        console.log(`[${agent.name}] ✅ Fetched ${tasksData.tasks.length} tasks`);
       }
-    }, 5 * 60 * 1000);
+    }
+    if (needsProjectData) {
+      const projRes = await fetch(`${API_BASE}/api/projects`);
+      const projData = await projRes.json();
+      if (projData.projects) {
+        internalDataContext += `\n📁 PROJECTS DATA:\n${JSON.stringify(projData.projects, null, 2).slice(0, 1500)}\n`;
+        console.log(`[${agent.name}] ✅ Fetched ${projData.projects.length} projects`);
+      }
+    }
+    if (needsGoalData) {
+      const goalsRes = await fetch(`${API_BASE}/api/goals`);
+      const goalsData = await goalsRes.json();
+      if (goalsData.goals) {
+        internalDataContext += `\n🎯 GOALS DATA:\n${JSON.stringify(goalsData.goals, null, 2).slice(0, 1500)}\n`;
+        console.log(`[${agent.name}] ✅ Fetched ${goalsData.goals.length} goals`);
+      }
+    }
+    if (needsLogData) {
+      const logsRes = await fetch(`${API_BASE}/api/logs?limit=30`);
+      const logsData = await logsRes.json();
+      if (logsData.logs) {
+        internalDataContext += `\n📝 RECENT LOGS:\n${JSON.stringify(logsData.logs.slice(0, 15), null, 2).slice(0, 2000)}\n`;
+        console.log(`[${agent.name}] ✅ Fetched ${logsData.logs.length} logs`);
+      }
+    }
+    if (needsDocData) {
+      const docsRes = await fetch(`${API_BASE}/api/docs?limit=10`);
+      const docsData = await docsRes.json();
+      if (docsData.docs) {
+        internalDataContext += `\n📄 RECENT DOCUMENTS:\n${JSON.stringify(docsData.docs, null, 2).slice(0, 1500)}\n`;
+        console.log(`[${agent.name}] ✅ Fetched ${docsData.docs.length} docs`);
+      }
+    }
+  } catch (e) {
+    console.error(`[${agent.name}] Pre-fetch error:`, e.message);
+  }
 
-    // Task polling every 60 seconds - wrapped in error handling
-    const taskInterval = setInterval(async () => {
-      try {
-      const tasks = await client.getBacklogTasks(agent.id);
+  // AUTO-SEARCH: Pre-execute Tavily searches in Node.js BEFORE calling Minimax
+  const AUTO_SEARCH_KEYWORDS = [
+    'analyse', 'analyze', 'review', 'audit', 'research',
+    'find', 'search', 'look up', 'check', 'investigate',
+    'compare', 'benchmark', 'monitor', 'track', 'fetch', 'fetch content',
+    'website', 'homepage', 'copy', 'headline', 'cta', 'competitor',
+    'seo', 'keyword', 'pricing', 'package', 'landing'
+  ];
+  
+  const taskText = (task.title + ' ' + (task.description || '')).toLowerCase();
+  const shouldAutoSearch = AUTO_SEARCH_KEYWORDS.some(k => taskText.includes(k));
+  
+  let searchContext = '';
+  if (shouldAutoSearch && TAVILY_API_KEY && client) {
+    try {
+      console.log(`[${agent.name}] 🔍 Pre-executing Tavily searches in Node.js...`);
       
-      if (tasks.length > 0) {
-        const task = tasks[0];
-        
-        console.log(`[${agent.name}] 📋 Found task: ${task.title}`);
-        client.log(`Picked up task: ${task.title}`, 'task');
-        
-        // Update to in-progress
-        await client.updateTaskStatus(task.id, 'in-progress');
-        
-        // Update status
-        activeAgents.set(agent.id, { ...agent, currentTask: task.title, status: 'online' });
-        await client.heartbeat(task.title);
-        
-        // Execute
-        client.log(`Executing: ${task.description || task.title}`, 'task');
-        console.log(`[${agent.name}] 🔄 Executing: ${task.title}`);
-        
-        // Neo's collaboration logic - detect complex tasks and create subtasks
-        let parentTask = task;
-        if (agent.name === 'Neo' && task.status === 'backlog') {
+      // Build multiple relevant search queries based on task
+      const searchQueries = [];
+      
+      // READ OUR WEBSITE FILES DIRECTLY - no Tavily needed for our own site!
+      if (/ppventures|website|homepage|copy|landing|hero|cta|section/i.test(taskText)) {
+        console.log(`[${agent.name}] Reading ppventures.tech files directly from server`);
+        const websiteContent = getWebsiteContext();
+        if (websiteContent) {
+          searchContext += `\n\n📄 PPVENTURES.TECH WEBSITE SOURCE FILES:\n${websiteContent}\n`;
+          console.log(`[${agent.name}] Website files loaded — ${websiteContent.length} chars`);
+        }
+        // Only use Tavily for competitor research - not for our own site
+      }
+      
+      // Use Tavily ONLY for competitor/external research
+      if (/competitor|benchmark|market/i.test(taskText)) {
+        searchQueries.push('top AI agent development company websites 2026');
+      }
+      if (/headline|hero|cta|value proposition/i.test(taskText)) {
+        searchQueries.push('SaaS landing page headline best practices 2026');
+        searchQueries.push('AI consulting agency value proposition examples');
+      }
+      if (/seo|keyword|traffic/i.test(taskText)) {
+        searchQueries.push('AI agent development services SEO keywords 2026');
+      }
+      if (/pricing|package|service/i.test(taskText)) {
+        searchQueries.push('AI consulting agency pricing packages 2026');
+      }
+      
+      // Default: search the task title
+      if (searchQueries.length === 0) {
+        const baseQuery = task.title.replace(/^(analyse|analyze|review|research|find|search|check|investigate|compare)\s+/i, '');
+        searchQueries.push(baseQuery);
+      }
+      
+      // Execute all searches in parallel via Node.js (not in Minimax!) - use standalone function
+      const searchResults = await Promise.all(
+        searchQueries.slice(0, 3).map(async (query) => {
           try {
-            console.log(`[Neo] 🔍 Analyzing task complexity...`);
-            
-            const complexityPrompt = `Analyse this task and determine if it is complex enough to be broken into subtasks for multiple agents to work on in parallel.
+            // Use standalone function instead of client.webSearch
+            const rawResult = await standaloneTavilySearch(query);
+            return { query, rawResult };
+          } catch (e) {
+            return { query, rawResult: null };
+          }
+        })
+      );
+      
+      // Parse results from standalone function
+      for (const { query, rawResult } of searchResults) {
+        if (rawResult) {
+          searchContext += `\n\n🔍 WEB RESEARCH for "${query}":\n${rawResult.slice(0, 2000)}\n`;
+        }
+      }
+      
+      if (searchContext) {
+        console.log(`[${agent.name}] ✅ Pre-fetched ${searchQueries.length} web searches (${searchContext.length} chars)`);
+      }
+    } catch (e) {
+      console.error(`[${agent.name}] Pre-search error:`, e.message);
+    }
+  }
+
+  // Neo's collaboration logic - detect complex tasks
+  if (agent.name === 'Neo') {
+    try {
+      console.log(`[Neo] 🔍 Analyzing task complexity...`);
+      
+      const complexityPrompt = `Analyse this task and determine if it is complex enough to be broken into subtasks for multiple agents to work on in parallel.
 
 Task: ${task.title}
 Description: ${task.description || 'None'}
@@ -313,163 +774,348 @@ Orbit specializes in: operations, summaries, monitoring, reporting
 
 Only suggest subtasks if is_complex is true. Maximum 2 subtasks.`;
 
-            const complexityRes = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${MINIMAX_API_KEY}`
-              },
-              body: JSON.stringify({
-                model: 'MiniMax-M2.5',
-                messages: [
-                  { role: 'system', content: 'You are a task analysis assistant. Respond only in JSON.' },
-                  { role: 'user', content: complexityPrompt }
-                ],
-                group_id: MINIMAX_GROUP_ID
-              })
-            });
-            
-            const complexityData = await complexityRes.json();
-            const content = complexityData.choices?.[0]?.message?.content || '';
-            
-            let complexityResult = null;
-            try {
-              const jsonMatch = content.match(/\{[\s\S]*\}/);
-              if (jsonMatch) {
-                complexityResult = JSON.parse(jsonMatch[0]);
-              }
-            } catch (e) {
-              console.log(`[Neo] Could not parse complexity result`);
-            }
-            
-            if (complexityResult && complexityResult.is_complex && complexityResult.subtasks?.length > 0) {
-              console.log(`[Neo] 🔗 Breaking task into ${complexityResult.subtasks.length} subtasks`);
-              client.log(`Breaking task into subtasks for collaboration`, 'task');
-              
-              // Get agent IDs
-              const allAgentsRes = await fetch(`${API_BASE}/api/agents`);
-              const allAgentsData = await allAgentsRes.json();
-              const allAgents = allAgentsData.agents || [];
-              const atlasAgent = allAgents.find(a => a.name === 'Atlas');
-              const orbitAgent = allAgents.find(a => a.name === 'Orbit');
-              
-              // Create subtasks
-              for (const subtaskSpec of complexityResult.subtasks) {
-                const targetAgent = subtaskSpec.assign_to === 'Atlas' ? atlasAgent : orbitAgent;
-                if (!targetAgent) continue;
-                
-                const subtaskRes = await fetch(`${API_BASE}/api/tasks`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    title: subtaskSpec.title,
-                    description: subtaskSpec.description,
-                    assigned_to: targetAgent.id,
-                    created_by: 'subtask',
-                    priority: task.priority || 'medium',
-                    status: 'backlog'
-                  })
-                });
-                const subtaskData = await subtaskRes.json();
-                
-                if (subtaskData.task) {
-                  // Create subtask relationship
-                  await fetch(`${API_BASE}/api/subtasks`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      parent_task_id: task.id,
-                      child_task_id: subtaskData.task.id,
-                      assigned_by: agent.id,
-                      reasoning: subtaskSpec.reasoning
-                    })
-                  });
-                  
-                  console.log(`[Neo] 🤝 Assigned subtask to ${targetAgent.name}: ${subtaskSpec.title}`);
-                  client.log(`Assigned subtask to ${targetAgent.name}: ${subtaskSpec.title}`, 'task');
-                }
-              }
-            }
-          } catch (collabErr) {
-            console.error(`[Neo] Collaboration error:`, collabErr.message);
-          }
+      const complexityRes = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MINIMAX_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'MiniMax-M2.5',
+          messages: [
+            { role: 'system', content: 'You are a task analysis assistant. Respond only in JSON.' },
+            { role: 'user', content: complexityPrompt }
+          ],
+          group_id: MINIMAX_GROUP_ID
+        })
+      });
+      
+      const complexityData = await complexityRes.json();
+      const content = complexityData.choices?.[0]?.message?.content || '';
+      
+      let complexityResult = null;
+      try {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          complexityResult = JSON.parse(jsonMatch[0]);
         }
-        
-        try {
-          const prompt = `${task.title}${task.description ? '\n\n' + task.description : ''}`;
-          const result = await executeWithMinimax(prompt, client);
-          
-          // Check if task needs review/approval (explicit in description)
-          const needsReview = task.description && 
-            (task.description.toLowerCase().includes('approve') || 
-             task.description.toLowerCase().includes('review'));
-          
-          // Auto-complete unless approval explicitly requested
-          if (needsReview) {
-            await client.updateTaskStatus(task.id, 'review', result);
-            client.log(`Task completed - awaiting review`, 'task');
-            console.log(`[${agent.name}] ✅ Task completed (review): ${task.title}`);
-          } else {
-            await client.updateTaskStatus(task.id, 'done', result);
-            client.log(`Task completed - auto-approved`, 'task');
-            console.log(`[${agent.name}] ✅ Task completed: ${task.title}`);
-          }
-          
-          // Auto-save memory
-          try {
-            await client.saveMemory(
-              `${agent.name} completed: ${task.title}. Result: ${result.substring(0, 200)}`,
-              'conversation',
-              `Task: ${task.title}`
-            );
-            console.log(`[${agent.name}] 💾 Memory saved`);
-          } catch (memErr) {
-            console.error(`[${agent.name}] Memory save error:`, memErr.message);
-          }
-          
-          // Auto-save document if result is substantial (>100 words)
-          try {
-            const wordCount = result.trim().split(/\s+/).length;
-            if (wordCount > 100) {
-              await client.saveDocument(
-                `${task.title} - Result`,
-                result,
-                'general',
-                'markdown'
-              );
-              console.log(`[${agent.name}] 📄 Document saved (${wordCount} words)`);
-            }
-          } catch (docErr) {
-            console.error(`[${agent.name}] Document save error:`, docErr.message);
-          }
-        } catch (execError) {
-          const errorResult = `Error: ${execError.message}`;
-          await client.updateTaskStatus(task.id, 'review', errorResult);
-          client.log(`Task failed: ${execError.message}`, 'error');
-          console.error(`[${agent.name}] ❌ Error: ${execError.message}`);
-        }
-        
-        // Reset to idle
-        activeAgents.set(agent.id, { ...agent, currentTask: null, status: 'idle' });
-        await client.heartbeat('idle');
+      } catch (e) {
+        console.log(`[Neo] Could not parse complexity result`);
       }
-    } catch (e) {
-      console.error(`[${agent.name}] Loop error:`, e.message);
-      client.log(`Error: ${e.message}`, 'error');
+      
+      if (complexityResult && complexityResult.is_complex && complexityResult.subtasks?.length > 0) {
+        console.log(`[Neo] 🔗 Breaking task into ${complexityResult.subtasks.length} subtasks`);
+        client.log(`Breaking task into subtasks for collaboration`, 'task');
+        
+        // Get agent IDs
+        const allAgentsRes = await fetch(`${API_BASE}/api/agents`);
+        const allAgentsData = await allAgentsRes.json();
+        const allAgents = allAgentsData.agents || [];
+        const atlasAgent = allAgents.find(a => a.name === 'Atlas');
+        const orbitAgent = allAgents.find(a => a.name === 'Orbit');
+        
+        for (const subtaskSpec of complexityResult.subtasks) {
+          const targetAgent = subtaskSpec.assign_to === 'Atlas' ? atlasAgent : orbitAgent;
+          if (!targetAgent) continue;
+          
+          const subtask = await client.createTask(
+            subtaskSpec.title,
+            subtaskSpec.description,
+            targetAgent.id,
+            task.priority || 'medium'
+          );
+          
+          console.log(`[Neo] 🤝 Assigned subtask to ${targetAgent.name}: ${subtaskSpec.title}`);
+          client.log(`Assigned subtask to ${targetAgent.name}: ${subtaskSpec.title}`, 'task');
+        }
+      }
+    } catch (collabErr) {
+      console.error(`[Neo] Collaboration error:`, collabErr.message);
     }
-  }, 60 * 1000);
+  }
 
-  activeAgents.set(agent.id, {
-    ...agent,
-    heartbeatInterval,
-    taskInterval,
-    currentTask: null,
-    status: 'online'
-  });
+  // ========== ACTION-BASED EXECUTION ==========
+  // For website/blog tasks, agents should take REAL actions, not just write reports
+  const isWebsiteTask = /ppventures|website|homepage|blog|copy|headline|cta|page|content|services|about/i.test(taskDesc);
+  const isBlogPost = /blog|post|article|write/i.test(taskDesc);
+  const isResearchTask = /research|analysis|audit|review/i.test(taskDesc) && !isWebsiteTask;
+
+  let actionTaken = '';
+
+  // Pre-load website context for website tasks
+  let websiteContext = '';
+  if (isWebsiteTask) {
+    console.log(`[${agent.name}] Loading website files for real action...`);
+    websiteContext = getWebsiteContext();
+    console.log(`[${agent.name}] Website files loaded — ${websiteContext.length} chars`);
+  }
+
+  try {
+    // Build action prompt - agents should take REAL actions
+    let actionPrompt = '';
+
+    if (isWebsiteTask) {
+      // Website change task - agent should update files
+      actionPrompt = `
+YOU ARE: ${agent.name} — take REAL actions on the ppventures website.
+
+TASK: ${task.title}
+INSTRUCTIONS: ${task.description}
+
+CURRENT WEBSITE FILES:
+${websiteContext}
+
+CRITICAL RULES:
+- Do NOT output tool calls, XML, or code syntax
+- Do NOT write a long report in your response
+- You must DECIDE what action to take and respond in this EXACT format:
+
+If this requires a WEBSITE CHANGE respond with ONLY:
+ACTION: update_file
+FILE: [exact file path e.g. app/page.tsx]
+OLD_TEXT: [exact text to replace - copy EXACTLY from the file above]
+NEW_TEXT: [exact replacement text]
+REASON: [one line explanation]
+
+If this requires a BLOG POST respond with ONLY:
+ACTION: create_blog_post
+TITLE: [post title]
+CONTENT: [full markdown content]
+
+Otherwise respond with:
+ACTION: save_document
+TITLE: [document title]
+CONTENT: [full content in markdown]
+
+Choose ONE action. Execute it now.
+`.trim();
+    } else {
+      // Regular task - build context and execute
+      actionPrompt = `
+YOU ARE: ${agent.name} — complete this task.
+
+TASK: ${task.title}
+INSTRUCTIONS: ${task.description}
+
+${internalDataContext ? `DATA:\n${internalDataContext}\n` : ''}
+${searchContext ? `RESEARCH:\n${searchContext}\n` : ''}
+
+Respond in this format:
+ACTION: save_document
+TITLE: [title]
+CONTENT: [your complete deliverable in markdown]
+`.trim();
+    }
+
+    const rawResponse = await executeWithMinimax(actionPrompt, client, agent);
+    const response = sanitiseAgentOutput(rawResponse);
+
+    // Parse and execute the action
+    if (isWebsiteTask && response.includes('ACTION: update_file')) {
+      const fileMatch = response.match(/FILE:\s*(.+)/);
+      const oldMatch = response.match(/OLD_TEXT:\s*([\s\S]*?)(?=NEW_TEXT:)/);
+      const newMatch = response.match(/NEW_TEXT:\s*([\s\S]*?)(?=REASON:|$)/);
+      const reasonMatch = response.match(/REASON:\s*(.+)/);
+
+      if (fileMatch && oldMatch && newMatch) {
+        const file = fileMatch[1].trim();
+        const oldText = oldMatch[1].trim();
+        const newText = newMatch[1].trim();
+        const reason = reasonMatch?.[1]?.trim() || 'Website improvement';
+
+        console.log(`[${agent.name}] Attempting to update ${file}...`);
+        const result = replaceInFile(file, oldText, newText, agent.name);
+
+        if (result.success) {
+          await restartWebsite();
+          actionTaken = `✅ Updated ${file} — ${reason}. Site restarted.`;
+          console.log(`[${agent.name}] ${actionTaken}`);
+          await client.log(`🌐 Updated ppventures.tech: ${reason}`, 'success');
+        } else {
+          actionTaken = `⚠️ Failed to update ${file}: ${result.error}`;
+          console.log(`[${agent.name}] ${actionTaken}`);
+        }
+      } else {
+        actionTaken = `⚠️ Could not parse update_file action from response`;
+      }
+
+    } else if (isBlogPost && response.includes('ACTION: create_blog_post')) {
+      const titleMatch = response.match(/TITLE:\s*(.+)/);
+      const contentMatch = response.match(/CONTENT:\s*([\s\S]*?)$/);
+
+      if (titleMatch && contentMatch) {
+        const title = titleMatch[1].trim();
+        const content = contentMatch[1].trim();
+        const result = createBlogPost(title, content, agent.name);
+
+        if (result.success) {
+          await restartWebsite();
+          actionTaken = `✅ Published blog post: "${title}". File saved and site restarted.`;
+          await client.saveDocument(title, content, 'blog', 'markdown');
+          await client.log(`📝 Published blog: ${title}`, 'success');
+        } else {
+          actionTaken = `⚠️ Failed to create blog post: ${result.error}`;
+        }
+      }
+
+    } else if (response.includes('ACTION: save_document') || !actionTaken) {
+      // Save as document
+      const titleMatch = response.match(/TITLE:\s*(.+)/);
+      const contentMatch = response.match(/CONTENT:\s*([\s\S]*?)$/);
+      const title = titleMatch?.[1]?.trim() || task.title;
+      const content = contentMatch?.[1]?.trim() || response;
+
+      await client.saveDocument(title, content, 'general', 'markdown');
+      actionTaken = `✅ Saved document: "${title}" to Docs.`;
+      await client.log(`📄 Saved doc: ${title}`, 'success');
+    }
+
+  } catch (actionErr) {
+    console.error(`[${agent.name}] Action error:`, actionErr.message);
+    actionTaken = `⚠️ Action failed: ${actionErr.message}`;
+  }
+
+  // ========== COMPLETE TASK ==========
+  // Use actionTaken result (short confirmation) - not long output
+  const finalResult = actionTaken || 'Task completed';
+
+  // Check if task needs review
+  const needsReview = task.description && 
+    (task.description.toLowerCase().includes('approve') || 
+     task.description.toLowerCase().includes('review'));
+  
+  if (needsReview) {
+    await client.updateTaskStatus(task.id, 'review', finalResult);
+    client.log(`Task completed - awaiting review`, 'task');
+    console.log(`[${agent.name}] ✅ Task completed (review): ${task.title}`);
+  } else {
+    await client.updateTaskStatus(task.id, 'done', finalResult);
+    client.log(`Task completed - ${finalResult}`, 'task');
+    console.log(`[${agent.name}] ✅ Task completed: ${task.title}`);
+  }
+  
+  // Save memory
+  try {
+    await client.saveMemory(
+      `${agent.name} completed: ${task.title}. ${finalResult}`,
+      'conversation',
+      `Task: ${task.title}`
+    );
+    console.log(`[${agent.name}] 💾 Memory saved`);
+  } catch (memErr) {
+    console.error(`[${agent.name}] Memory save error:`, memErr.message);
+  }
+  
+  // Reset to idle
+  activeAgents.set(agent.id, { ...agent, currentTask: null, status: 'idle' });
+  await client.heartbeat('idle');
+}
+
+// ========== MAIN AGENT WORK LOOP ==========
+
+async function agentWorkLoop(agent) {
+  try {
+    const client = await createAgentClient(agent.api_key);
+    
+    // STRICT MODE: Only work on assigned tasks - NO auto task creation
+    
+    // Check for backlog tasks
+    const backlogTasks = await client.getBacklogTasks(agent.id);
+    
+    if (backlogTasks && backlogTasks.length > 0) {
+      // Work on backlog task
+      console.log(`[${agent.name}] 📋 Found ${backlogTasks.length} backlog task(s)`);
+      await executeTask(agent, backlogTasks[0], client);
+      return;
+    }
+    
+    // NO BACKLOG TASKS - Agent stands by. NO self-assignment.
+    // Product mission only - wait for manually created tasks
+    console.log(`[${agent.name}] ⏸️ Standing by — waiting for product mission tasks`);
+    // Do NOT generate self tasks - wait for explicit tasks only
+    return;
+  } catch (err) {
+    console.error(`${agent.name} work loop error:`, err.message);
+  }
+}
+    
+
+// ========== STARTUP BURST ==========
+
+async function startupBurst(agent) {
+  try {
+    const client = await createAgentClient(agent.api_key);
+    const dailyTarget = DAILY_TARGETS[agent.name] || 4;
+    const completedToday = await client.getDailyTaskCount(agent.id);
+    const gap = dailyTarget - completedToday;
+    
+    if (gap > 0) {
+      console.log(`[${agent.name}] 🚀 Startup burst — creating ${gap} tasks to hit daily target`);
+      await client.log(`🚀 Startup burst — creating ${gap} tasks to hit daily target`, 'info');
+      
+      // Create up to 3 tasks to catch up
+      const tasksToCreate = Math.min(gap, 3);
+      for (let i = 0; i < tasksToCreate; i++) {
+        const task = await generateSelfTask(agent, client);
+        if (task) {
+          await executeTask(agent, task, client);
+        }
+      }
+    } else {
+      console.log(`[${agent.name}] ✅ Already at target (${completedToday}/${dailyTarget})`);
+      await client.log(`✅ Already at daily target (${completedToday}/${dailyTarget})`, 'info');
+    }
+  } catch (err) {
+    console.error(`[${agent.name}] Startup burst error:`, err.message);
+  }
+}
+
+// ========== RUN AGENT ==========
+
+async function runAgent(agent) {
+  try {
+    const client = await createAgentClient(agent.api_key);
+    
+    console.log(`[${agent.name}] Starting...`);
+    client.log(`Agent started - Zero Idle mode enabled`, 'info').catch(() => {});
+
+    // Heartbeat every 5 minutes
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        const agentData = activeAgents.get(agent.id) || agent;
+        const status = agentData.currentTask || 'idle';
+        await client.heartbeat(status);
+        console.log(`[${agent.name}] 💓 Heartbeat: ${status}`);
+      } catch (e) {
+        console.error(`[${agent.name}] Heartbeat error:`, e.message);
+      }
+    }, HEARTBEAT_INTERVAL_MS);
+
+    // NO startup burst - only work on assigned tasks
+
+    // Main work loop every 90 seconds
+    const taskInterval = setInterval(async () => {
+      await agentWorkLoop(agent);
+    }, LOOP_INTERVAL_MS);
+
+    // Also run immediately
+    await agentWorkLoop(agent);
+
+    activeAgents.set(agent.id, {
+      ...agent,
+      heartbeatInterval,
+      taskInterval,
+      currentTask: null,
+      status: 'online'
+    });
+
+    console.log(`[${agent.name}] ✅ Zero Idle loop started (90s interval, target: ${DAILY_TARGETS[agent.name] || 4}/day)`);
   } catch (err) {
     console.error(`[${agent.name}] ❌ Agent loop failed to start:`, err.message);
   }
 }
+
+// ========== SERVER WAIT ==========
 
 async function waitForServer(maxRetries = 30, delay = 2000) {
   console.log('⏳ Waiting for server to be ready...');
@@ -490,13 +1136,17 @@ async function waitForServer(maxRetries = 30, delay = 2000) {
   return false;
 }
 
+// ========== MAIN START ==========
+
 async function startAllAgents() {
-  console.log('\n🚀 Starting AI Agent Command Centre - Agent Launcher\n');
+  console.log('\n🚀 PPVentures Autonomous Agent System - ZERO IDLE MODE\n');
   console.log(`📡 API Base: ${API_BASE}`);
   console.log(`🤖 Minimax: ${MINIMAX_GROUP_ID ? 'configured' : 'using default group'}`);
-  console.log(`🔍 Tavily Search: ${TAVILY_API_KEY ? 'configured' : 'not configured'}\n`);
+  console.log(`🔍 Tavily Search: ${TAVILY_API_KEY ? 'configured' : 'not configured'}`);
+  console.log(`⏱️  Loop Interval: ${LOOP_INTERVAL_MS / 1000}s`);
+  console.log(`🎯 Daily Targets: Neo ${DAILY_TARGETS.Neo}, Atlas ${DAILY_TARGETS.Atlas}, Orbit ${DAILY_TARGETS.Orbit}\n`);
   
-  // Wait for server to be ready
+  // Wait for server
   const serverReady = await waitForServer();
   if (!serverReady) {
     console.log('❌ Cannot start agents - server not available');
@@ -514,28 +1164,33 @@ async function startAllAgents() {
   
   console.log(`✅ Found ${agents.length} agents: ${agents.map(a => a.name).join(', ')}\n`);
   
-  for (const agent of agents) {
-    try {
-      await runAgentLoop(agent);
-      console.log(`[${agent.name}] ✅ Agent loop started successfully`);
-    } catch (err) {
-      console.error(`[${agent.name}] ❌ Failed to start agent loop:`, err.message);
-    }
-    await new Promise(r => setTimeout(r, 500)); // Stagger startup
+  // Start each agent with staggered startup (parallel execution)
+  for (let i = 0; i < agents.length; i++) {
+    const agent = agents[i];
+    const startDelay = i * STARTUP_STAGGER_MS;
+    
+    setTimeout(async () => {
+      await runAgent(agent);
+      console.log(`[${agent.name}] ✅ Agent running in parallel`);
+    }, startDelay);
+    
+    await new Promise(r => setTimeout(r, 500)); // Small stagger for log clarity
   }
   
-  // Start cron job scheduler
+  // Start cron jobs
   await startCronJobs(agents);
   
   console.log('\n' + '='.repeat(50));
-  console.log('✅ All agents running!');
-  console.log('📋 Polling for tasks every 60 seconds');
-  console.log('💓 Sending heartbeats every 5 minutes');
-  console.log('⏰ Cron jobs scheduled');
+  console.log('✅ ZERO IDLE AGENT SYSTEM RUNNING!');
+  console.log('📋 Agents self-assign when backlog is empty');
+  console.log('⏱️  Polling every 90 seconds');
+  console.log('🎯 Daily targets enforced');
+  console.log('🚀 Startup burst on restart');
   console.log('='.repeat(50) + '\n');
 }
 
-// Cron job scheduler
+// ========== CRON JOBS ==========
+
 const scheduledJobs = new Map();
 
 async function startCronJobs(agents) {
@@ -562,11 +1217,9 @@ async function startCronJobs(agents) {
         continue;
       }
       
-      // Schedule the cron job
       const scheduled = cron.schedule(job.cron_expression, async () => {
         console.log(`⏰ [CRON] Running: ${job.title} for ${agent.name}`);
         
-        // Create a task for the agent
         try {
           const taskRes = await fetch(`${API_BASE}/api/tasks`, {
             method: 'POST',
@@ -583,7 +1236,6 @@ async function startCronJobs(agents) {
           const taskData = await taskRes.json();
           console.log(`✅ [CRON] Task created: ${job.title} (ID: ${taskData.task?.id})`);
           
-          // Update last_run in cron_jobs
           await fetch(`${API_BASE}/api/crons/${job.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -602,14 +1254,11 @@ async function startCronJobs(agents) {
   }
 }
 
-startAllAgents().catch(console.error);
+// ========== SCHEDULE CHECKER ==========
 
-// Schedule checker - checks every 5 minutes for scheduled blocks
 setInterval(async () => {
   try {
     const now = new Date();
-    
-    // Fetch today's scheduled blocks
     const res = await fetch(`${API_BASE}/api/schedules?type=today`);
     const data = await res.json();
     const blocks = data.blocks || [];
@@ -620,24 +1269,18 @@ setInterval(async () => {
       const blockTime = new Date(block.scheduled_at);
       const diffMinutes = (blockTime - now) / 1000 / 60;
       
-      // If within 5 minutes window and scheduled
       if (diffMinutes <= 5 && diffMinutes >= -5) {
         const agent = activeAgents.get(block.agent_id);
-        if (!agent) {
-          console.log(`⚠️ Schedule trigger: Agent for block not found`);
-          continue;
-        }
+        if (!agent) continue;
         
         console.log(`⏰ Schedule triggered for ${agent.name}: ${block.title}`);
         
-        // Mark as running
         await fetch(`${API_BASE}/api/schedules/${block.id}?type=block`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status: 'running' })
         });
-        
-        // Create a task for the agent
+
         await fetch(`${API_BASE}/api/tasks`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -650,7 +1293,6 @@ setInterval(async () => {
           })
         });
         
-        // Log to activity
         console.log(`✅ Schedule task created: ${block.title} for ${agent.name}`);
       }
     }
@@ -659,936 +1301,432 @@ setInterval(async () => {
   }
 }, 5 * 60 * 1000);
 
-// ========== Website Improvement Cycle ==========
-// Runs every day at 10AM - Atlas audits, Neo approves, Orbit implements
+// ========== WATCHDOG ==========
 
-const WEBSITE_CONTEXT = `
-ONGOING PROJECT — PPVENTURES WEBSITE (https://ppventures.tech):
-This is a HIGH PRIORITY ongoing project. Every day work on improving the website.
-`;
-
-async function callMinimax(agentName, prompt) {
-  const agent = [...activeAgents.values()].find(a => a.name === agentName);
-  if (!agent) {
-    throw new Error(`Agent ${agentName} not found`);
-  }
-  
-  const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${MINIMAX_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'MiniMax-M2.5',
-      messages: [
-        { role: 'system', content: `You are ${agentName}. ${agentName === 'Atlas' ? 'Research specialist - find improvements.' : agentName === 'Neo' ? 'Leadership - make decisions.' : 'Operations - implement changes.'} ${WEBSITE_CONTEXT}` },
-        { role: 'user', content: prompt }
-      ]
-    })
-  });
-  
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-
-async function websiteImprovementCycle() {
-  try {
-    console.log('🌐 Starting website improvement cycle...');
-    
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const atlas = agents.find(a => a.name === 'Atlas');
-    const neo = agents.find(a => a.name === 'Neo');
-    const orbit = agents.find(a => a.name === 'Orbit');
-    
-    if (!atlas || !neo || !orbit) {
-      console.log('⚠️ Missing agents for website improvement cycle');
-      return;
-    }
-    
-    // 1. Atlas audits the live website
-    console.log('🔍 Atlas auditing ppventures.tech...');
-    const auditPrompt = `
-You are Atlas, research specialist.
-Use your Tavily web search to fetch and analyse https://ppventures.tech right now.
-
-Look for these specific improvement opportunities:
-1. Weak or vague copy that could be more compelling
-2. Missing sections that top AI agency websites have
-3. SEO improvements — missing keywords, weak headings
-4. Missing social proof — testimonials, case studies, stats
-5. Unclear CTAs — where should visitors click next
-6. Missing content — pages that are empty or thin
-
-Then pick the SINGLE highest impact improvement you can make right now.
-It must be something you can implement by editing a file.
-
-Respond in JSON only (no other text):
-{
-  "improvement": "what needs to be improved",
-  "why": "why this will have high impact",
-  "file_to_edit": "which file needs changing (relative to website root)",
-  "current_content": "what is there now (brief excerpt)",
-  "new_content": "the exact replacement content",
-  "implementation_notes": "any special instructions"
-}
-`;
-    
-    const atlasResult = await callMinimax('Atlas', auditPrompt);
-    let atlasAudit;
-    try {
-      atlasAudit = JSON.parse(atlasResult);
-    } catch (e) {
-      console.log('⚠️ Atlas returned non-JSON, using partial parse');
-      const match = atlasResult.match(/\{[\s\S]*\}/);
-      if (match) atlasAudit = JSON.parse(match[0]);
-      else {
-        console.log('⚠️ Could not parse Atlas response:', atlasResult.slice(0, 200));
-        return;
-      }
-    }
-    
-    console.log('📋 Atlas found:', atlasAudit.improvement);
-    
-    // 2. Neo reviews and approves
-    console.log('👀 Neo reviewing...');
-    const reviewPrompt = `
-You are Neo, lead agent.
-Atlas has suggested this website improvement:
-
-Improvement: ${atlasAudit.improvement}
-Why: ${atlasAudit.why}
-File to edit: ${atlasAudit.file_to_edit}
-New content: ${atlasAudit.new_content}
-
-Review this suggestion. Is it:
-1. Safe to implement (no risk of breaking the site)
-2. A genuine improvement (not just change for change's sake)
-3. Within scope (copy, content, structure — not core functionality)
-
-Respond in JSON only:
-{
-  "approved": true or false,
-  "reason": "why approved or rejected",
-  "modified_content": "improved version of the content if you want to adjust it"
-}
-`;
-    
-    const neoResult = await callMinimax('Neo', reviewPrompt);
-    let neoReview;
-    try {
-      neoReview = JSON.parse(neoResult);
-    } catch (e) {
-      const match = neoResult.match(/\{[\s\S]*\}/);
-      if (match) neoReview = JSON.parse(match[0]);
-      else {
-        console.log('⚠️ Could not parse Neo response');
-        return;
-      }
-    }
-    
-    if (!neoReview.approved) {
-      console.log('⚠️ Neo rejected:', neoReview.reason);
-      // Log rejection
-      await fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: neo.api_key, message: `⚠️ Neo rejected website change: ${neoReview.reason}`, log_type: 'info' })
-      });
-      return;
-    }
-    
-    console.log('✅ Neo approved!');
-    
-    // 3. Orbit implements
-    const finalContent = neoReview.modified_content || atlasAudit.new_content;
-    console.log('✏️ Orbit implementing...');
-    
-    const implementRes = await fetch(`${API_BASE}/api/website/implement`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: orbit.api_key,
-        action: 'update_file',
-        file_path: atlasAudit.file_to_edit,
-        content: finalContent,
-        description: atlasAudit.improvement,
-        backup: true
-      })
-    });
-    
-    const result = await implementRes.json();
-    
-    if (result.success) {
-      console.log('✅ Website improved:', atlasAudit.improvement);
-      
-      // Log success
-      await fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          api_key: orbit.api_key, 
-          message: `✅ Website improved: ${atlasAudit.improvement}`, 
-          log_type: 'task' 
-        })
-      });
-      
-      // Save as completed task
-      await fetch(`${API_BASE}/api/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `Website improvement: ${atlasAudit.improvement}`,
-          description: atlasAudit.why,
-          assigned_to: orbit.id,
-          status: 'done',
-          priority: 'high',
-          result: `Changed ${atlasAudit.file_to_edit}`
-        })
-      });
-    } else {
-      console.log('❌ Implementation failed:', result.error);
-    }
-    
-  } catch (err) {
-    console.error('🌐 Website improvement cycle error:', err.message);
-  }
-}
-
-// Run at 10AM daily
-cron.schedule('0 10 * * *', websiteImprovementCycle);
-
-// Run once on startup (delayed by 30 seconds)
-setTimeout(() => {
-  console.log('⏳ Running initial website improvement cycle in 30s...');
-  websiteImprovementCycle();
-}, 30000);
-
-// ========== End Website Improvement Cycle ==========
-
-// Watchdog timer - logs every 10 minutes to confirm process is alive
 setInterval(() => {
   console.log('✅ Agents alive - watchdog ' + new Date().toISOString());
 }, 10 * 60 * 1000);
 
-// ========== Autonomous Enhancement System ==========
+// ========== WEBSITE IMPROVEMENT CYCLE (every 6 hours) ==========
 
-// Safety Rules
-const CC_ALLOWED_PATHS = ['app/', 'components/', 'styles/', 'lib/'];
-const CC_FORBIDDEN_PATHS = [
-  'start-agents.js', 'ecosystem.config.js',
-  '.env', '.env.local', 'next.config.js', 'package.json'
-];
-const WEB_ALLOWED_PATHS = ['app/', 'components/', 'content/', 'posts/', 'public/'];
-const WEB_FORBIDDEN_PATHS = ['.env', 'next.config.js', 'package.json'];
-const MAX_CC_CHANGES_PER_DAY = 3;
-const MAX_WEB_CHANGES_PER_DAY = 5;
-let lastRestartTime = 0;
-const MIN_RESTART_INTERVAL_MS = 60 * 60 * 1000;
-
-// Track daily changes
-let dailyChanges = {
-  cc: 0,
-  web: 0,
-  lastReset: new Date().toDateString()
-};
-
-function resetDailyCounts() {
-  const today = new Date().toDateString();
-  if (dailyChanges.lastReset !== today) {
-    dailyChanges = { cc: 0, web: 0, lastReset: today };
-    console.log('🔄 Daily change counters reset');
-  }
-}
-
-function canMakeChange(target) {
-  resetDailyCounts();
-  if (target === 'command_centre' && dailyChanges.cc >= MAX_CC_CHANGES_PER_DAY) {
-    return { allowed: false, reason: 'Max CC changes reached' };
-  }
-  if (target === 'website' && dailyChanges.web >= MAX_WEB_CHANGES_PER_DAY) {
-    return { allowed: false, reason: 'Max website changes reached' };
-  }
-  return { allowed: true };
-}
-
-function recordChange(target) {
-  if (target === 'command_centre') dailyChanges.cc++;
-  else if (target === 'website') dailyChanges.web++;
-}
-
-// Save scan results to file (for Neo to read later)
-async function saveScanResults(scan) {
-  const fs = require('fs');
-  const path = require('path');
-  const scanFile = path.join(__dirname, '.atlas-scan.json');
-  fs.writeFileSync(scanFile, JSON.stringify({
-    scan,
-    timestamp: new Date().toISOString()
-  }, null, 2));
-  console.log('💾 Scan results saved');
-}
-
-// Get latest scan results
-async function getLatestScanResults() {
-  const fs = require('fs');
-  const path = require('path');
-  const scanFile = path.join(__dirname, '.atlas-scan.json');
-  if (fs.existsSync(scanFile)) {
-    const data = JSON.parse(fs.readFileSync(scanFile, 'utf8'));
-    return data.scan;
-  }
-  return null;
-}
-
-// Helper: call Minimax
-async function callMinimax(agentName, prompt) {
-  const response = await fetch('https://api.minimax.chat/v1/text/chatcompletion_pro', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${MINIMAX_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'abab6.5s-chat',
-      messages: [{ role: 'user', content: prompt }],
-      max_tokens: 4000
-    })
-  });
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || '';
-}
-
-// Detect task type
-function detectTaskType(task) {
-  const text = (task.title + ' ' + task.description).toLowerCase();
-  if (text.includes('ppventures') || text.includes('website') || text.includes('blog') || text.includes('content')) {
-    return 'website';
-  }
-  if (text.includes('command centre') || text.includes('dashboard') || text.includes('screen') || text.includes('ui')) {
-    return 'command_centre';
-  }
-  return 'general';
-}
-
-// Step 1: Atlas Daily Scan (8AM)
-async function atlasDailyScan() {
+async function websiteImprovementCycle() {
   try {
-    console.log('🔍 Starting Atlas daily scan...');
-    
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const atlas = agents.find(a => a.name === 'Atlas');
-    if (!atlas) {
-      console.log('⚠️ Atlas not found');
-      return;
-    }
+    console.log('🌐 Starting website improvement cycle...');
+
+    const { getWebsiteContext } = require('./lib/agentActions');
+    const websiteContent = getWebsiteContext();
+
+    const [competitors, bestPractices, seoData] = await Promise.all([
+      standaloneTavilySearch('best AI automation company website 2026 design copy'),
+      standaloneTavilySearch('high converting SaaS landing page sections 2026'),
+      standaloneTavilySearch('AI agency website SEO keywords that drive traffic 2026')
+    ]);
 
     const scanPrompt = `
-You are Atlas. Your job today is to find the highest impact improvements
-for two things we own:
+You are Atlas. Find the single highest impact improvement for ppventures.tech.
 
-1. OUR COMMAND CENTRE (running at http://72.62.231.18:3001)
-Scan every screen and look for:
-- Any screen that looks unfinished or inconsistent
-- Any missing data, empty states, or broken layouts
-- Any UX friction — too many clicks, confusing labels, missing feedback
-- Any performance issues — slow loading, unnecessary re-renders
-- Any missing quality of life features — copy buttons, timestamps, counts
+CURRENT WEBSITE FILES:
+${websiteContent.slice(0, 3000)}
 
-2. OUR WEBSITE (https://ppventures.tech)
-Use Tavily to fetch every page and look for:
-- Weak or vague copy that could be stronger
-- Missing sections competitors have
-- Thin pages with not enough content
-- Missing SEO keywords in headings and text
-- Unclear or missing calls to action
-- No blog posts or outdated content
+COMPETITOR EXAMPLES:
+${competitors.slice(0, 1000)}
 
-Also search for:
-- "best AI agent company websites 2026" — what are competitors doing better
-- "AI agent services landing page best practices" — what converts best
-- "top AI consulting website design 2026" — what looks most credible
+BEST PRACTICES:
+${bestPractices.slice(0, 1000)}
 
-Produce a list of the top 5 improvements ranked by impact.
-Each improvement must be specific and implementable today.
+SEO DATA:
+${seoData.slice(0, 1000)}
 
-Respond in JSON only:
-{
-  "scan_summary": "one sentence of what you found overall",
-  "improvements": [
-    {
-      "rank": 1,
-      "target": "command_centre or website",
-      "area": "which screen or page",
-      "issue": "what is wrong",
-      "improvement": "exactly what to change",
-      "implementation": "how to implement it — file to edit or content to write",
-      "impact": "high or medium",
-      "effort": "small or medium"
-    }
-  ]
-}
-`;
+Find ONE specific improvement that is:
+- A real file change on ppventures.tech
+- Higher conversion or better SEO
+- Implementable in under 50 lines
 
-    const scanResult = await callMinimax('Atlas', scanPrompt);
-    let scan;
-    try {
-      scan = JSON.parse(scanResult);
-    } catch (e) {
-      const match = scanResult.match(/\{[\s\S]*\}/);
-      if (match) scan = JSON.parse(match[0]);
-      else {
-        console.log('⚠️ Could not parse Atlas scan:', scanResult.slice(0, 200));
-        return;
-      }
-    }
+Respond in this exact format only:
+IMPROVEMENT: [what to improve]
+FILE: [exact file path from website root]
+REASON: [why this increases revenue]
+ASSIGN_TO: Atlas or Orbit or Neo
+TASK_TITLE: [specific task title]
+TASK_DESCRIPTION: [full instructions including exact copy to write]
+    `.trim();
 
-    console.log('📋 Atlas scan complete:', scan.scan_summary);
-    
-    // Save scan results
-    await saveScanResults(scan);
-    
-    // Log to Command Centre
-    await fetch(`${API_BASE}/api/logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        api_key: atlas.api_key, 
-        message: `🔍 Atlas scan complete: ${scan.scan_summary}`, 
-        log_type: 'info' 
-      })
-    });
-    
-    // Log each improvement
-    for (const imp of scan.improvements) {
-      await fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          api_key: atlas.api_key, 
-          message: `   #${imp.rank}: [${imp.target}] ${imp.improvement}`, 
-          log_type: 'info' 
-        })
-      });
-    }
-    
-  } catch (err) {
-    console.error('🔴 Atlas scan error:', err.message);
-  }
-}
+    const scanResult = sanitiseAgentOutput(await callMinimax('Atlas', scanPrompt));
 
-// Step 2: Neo Creates Tasks from Scan (9AM)
-async function neoCreateTasks() {
-  try {
-    console.log('📋 Neo creating tasks from scan...');
-    
-    const scan = await getLatestScanResults();
-    if (!scan) {
-      console.log('⚠️ No scan results found');
-      return;
-    }
-    
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const neo = agents.find(a => a.name === 'Neo');
-    const atlas = agents.find(a => a.name === 'Atlas');
-    const orbit = agents.find(a => a.name === 'Orbit');
-    
-    if (!neo) {
-      console.log('⚠️ Neo not found');
+    const titleMatch = scanResult.match(/TASK_TITLE:\s*(.+)/);
+    const assignMatch = scanResult.match(/ASSIGN_TO:\s*(.+)/);
+    const descMatch = scanResult.match(/TASK_DESCRIPTION:\s*([\s\S]*?)$/);
+    const improvementMatch = scanResult.match(/IMPROVEMENT:\s*(.+)/);
+
+    if (!titleMatch || !assignMatch) {
+      console.log('No actionable improvement found this cycle');
       return;
     }
 
-    const planPrompt = `
-You are Neo, lead agent.
-Atlas completed a scan and found these improvements:
-${JSON.stringify(scan.improvements, null, 2)}
+    const agentId = await getAgentIdByName(assignMatch[1].trim());
+    if (!agentId) return;
 
-Create specific actionable tasks from these findings.
-Assign each task to the right agent:
-- Atlas: research, copy writing, content creation, SEO
-- Orbit: implementing UI changes, file edits, reporting
-- Neo: complex changes, coordination, strategic copy
-
-For website tasks — the task description must include
-the EXACT new content or code to implement.
-Agents must be able to execute without asking questions.
-
-For Command Centre tasks — specify exactly which file
-to edit and what change to make in under 20 lines.
-
-Respond in JSON only:
-{
-  "tasks": [
-    {
-      "title": "specific task title",
-      "description": "full implementation instructions with exact content",
-      "assign_to": "Neo or Atlas or Orbit",
-      "target": "command_centre or website",
-      "file_path": "exact file to edit if known",
-      "priority": "high or medium"
-    }
-  ]
-}
-`;
-
-    const planResult = await callMinimax('Neo', planPrompt);
-    let plan;
-    try {
-      plan = JSON.parse(planResult);
-    } catch (e) {
-      const match = planResult.match(/\{[\s\S]*\}/);
-      if (match) plan = JSON.parse(match[0]);
-      else {
-        console.log('⚠️ Could not parse Neo plan:', planResult.slice(0, 200));
-        return;
-      }
-    }
-
-    // Create tasks in database
-    for (const task of plan.tasks) {
-      let agentId;
-      if (task.assign_to === 'Atlas') agentId = atlas?.id;
-      else if (task.assign_to === 'Orbit') agentId = orbit?.id;
-      else agentId = neo.id;
-      
-      await fetch(`${API_BASE}/api/tasks`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: task.title,
-          description: task.description,
-          assigned_to: agentId,
-          status: 'backlog',
-          priority: task.priority
-        })
-      });
-      
-      await fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          api_key: neo.api_key, 
-          message: `📋 Created task: "${task.title}" → ${task.assign_to}`, 
-          log_type: 'task' 
-        })
-      });
-    }
-    
-    console.log(`✅ Neo created ${plan.tasks.length} tasks`);
-    
-  } catch (err) {
-    console.error('🔴 Neo task creation error:', err.message);
-  }
-}
-
-// Step 3: Execute Enhancement Tasks (runs throughout day)
-async function executeEnhancementTask(task, agent) {
-  const taskType = detectTaskType(task);
-  const canChange = canMakeChange(taskType);
-  
-  if (!canChange.allowed) {
-    console.log(`⚠️ ${canChange.reason} for ${taskType}`);
-    return { success: false, reason: canChange.reason };
-  }
-
-  try {
-    if (taskType === 'command_centre') {
-      // Execute CC change
-      const taskDesc = task.description;
-      // Parse file path and content from description
-      const fileMatch = taskDesc.match(/file[:\s]+([^\n]+)/i);
-      const contentMatch = taskDesc.match(/content[:\s]+([\s\S]+?)(?:\n\n|$)/i);
-      
-      if (fileMatch && contentMatch) {
-        const filePath = fileMatch[1].trim();
-        const newContent = contentMatch[1].trim();
-        
-        // Security check
-        const isAllowed = CC_ALLOWED_PATHS.some(p => filePath.startsWith(p)) && 
-          !CC_FORBIDDEN_PATHS.some(p => filePath.includes(p));
-        
-        if (!isAllowed) {
-          return { success: false, reason: 'Path not allowed' };
-        }
-        
-        // In production, we'd edit the file here
-        console.log(`✏️ Would edit ${filePath} for Command Centre`);
-        recordChange('command_centre');
-        
-        return { success: true, what: `Updated ${filePath}` };
-      }
-    } else if (taskType === 'website') {
-      // Execute website change via API
-      const implementRes = await fetch(`${API_BASE}/api/website/implement`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          api_key: agent.api_key,
-          action: 'update_file',
-          description: task.title,
-          backup: true
-        })
-      });
-      
-      const result = await implementRes.json();
-      if (result.success) {
-        recordChange('website');
-      }
-      return result;
-    }
-    
-    return { success: false, reason: 'Could not parse task' };
-  } catch (err) {
-    return { success: false, reason: err.message };
-  }
-}
-
-// Step 4: Orbit Evening Report (6PM)
-async function orbitEveningReport() {
-  try {
-    console.log('📊 Generating evening report...');
-    
-    const today = new Date().toISOString().split('T')[0];
-    
-    const tasksRes = await fetch(`${API_BASE}/api/tasks?status=done&date=${today}`);
-    const tasksData = await tasksRes.json();
-    const tasks = tasksData.tasks || [];
-    
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const orbit = agents.find(a => a.name === 'Orbit');
-    const neo = agents.find(a => a.name === 'Neo');
-    
-    if (!orbit) {
-      console.log('⚠️ Orbit not found');
+    // Skip if recently done
+    const recent = await fetchFromAPI('/api/tasks?limit=10&status=done');
+    const alreadyDone = recent?.tasks?.some(t =>
+      t.title.toLowerCase().includes(titleMatch[1].toLowerCase().slice(0, 20))
+    );
+    if (alreadyDone) {
+      console.log('Already done recently — skipping');
       return;
     }
 
-    const reportPrompt = `
-You are Orbit. Write a concise evening enhancement report.
-
-TASKS COMPLETED TODAY:
-${tasks.map(t => `- [${t.assigned_agent?.name || 'Agent'}] ${t.title}`).join('\n') || 'None'}
-
-Cover:
-1. Command Centre improvements made today
-2. Website improvements made today
-3. Content published today
-4. What was not completed and why
-5. Priority focus for tomorrow
-
-Keep it under 150 words. Be specific. List actual changes made.
-Format as clean markdown.
-`;
-
-    const report = await callMinimax('Orbit', reportPrompt);
-    
-    // Save to docs
-    await fetch(`${API_BASE}/api/docs/save`, {
+    await fetch(`${API_BASE}/api/tasks`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        api_key: orbit.api_key,
-        title: `Enhancement Report — ${today}`,
-        content: report,
-        format: 'markdown',
-        category: 'report'
+        title: titleMatch[1].trim(),
+        description: descMatch?.[1]?.trim() || improvementMatch?.[1]?.trim(),
+        assigned_to: agentId,
+        status: 'backlog',
+        priority: 'medium'
       })
     });
-    
-    await fetch(`${API_BASE}/api/logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        api_key: orbit.api_key, 
-        message: `📊 Evening report saved: Enhancement Report — ${today}`, 
-        log_type: 'info' 
-      })
-    });
-    
-    // Also log to Neo
-    if (neo) {
-      await fetch(`${API_BASE}/api/logs`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          api_key: neo.api_key, 
-          message: `📊 Evening report generated for ${today}`, 
-          log_type: 'info' 
-        })
-      });
-    }
-    
-    console.log('✅ Evening report saved');
-    
+
+    await logToCommandCentre(atlasId,
+      `🌐 Website improvement queued: ${titleMatch[1].trim()} → ${assignMatch[1].trim()}`,
+      'task'
+    );
+
   } catch (err) {
-    console.error('🔴 Evening report error:', err.message);
+    console.error('Website improvement cycle error:', err.message);
   }
 }
 
-// ========== Revenue-Focused Daily Planning (Neo) ==========
+// Run every 6 hours
+cron.schedule('0 */6 * * *', websiteImprovementCycle);
 
-async function neoRevenuePlanning() {
+// Run once on startup after 2 minute delay
+setTimeout(websiteImprovementCycle, 2 * 60 * 1000);
+
+// ========== BLOG POST CRON (Tuesday & Thursday 9AM) ==========
+
+cron.schedule('0 9 * * 2,4', async () => {
   try {
-    console.log('💰 Neo running revenue-focused daily planning...');
-    
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const neo = agents.find(a => a.name === 'Neo');
-    const atlas = agents.find(a => a.name === 'Atlas');
-    const orbit = agents.find(a => a.name === 'Orbit');
-    
-    if (!neo) {
-      console.log('⚠️ Neo not found');
+    const [topics, caseStudies] = await Promise.all([
+      standaloneTavilySearch('trending AI agent topics small business 2026'),
+      standaloneTavilySearch('AI automation small business results case study 2026')
+    ]);
+
+    await fetch(`${API_BASE}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Write and publish blog post to ppventures.tech',
+        description: `
+Write a high quality blog post and publish it as a real file on ppventures.tech.
+
+TRENDING TOPICS:
+${topics.slice(0, 1000)}
+
+CASE STUDY IDEAS:
+${caseStudies.slice(0, 1000)}
+
+REQUIREMENTS:
+- Pick the most relevant topic for solo consultants and small agencies
+- Write 600-800 words
+- SEO friendly title
+- Include: problem, solution, 3 key insights, CTA to try PPVentures
+- End with: "Ready to automate? Try PPVentures free for 14 days →"
+
+ACTION: create_blog_post
+TITLE: [your chosen title]
+CONTENT: [full blog post in markdown]
+        `.trim(),
+        assigned_to: atlasId,
+        status: 'backlog',
+        priority: 'medium'
+      })
+    });
+    console.log('📝 Blog post task created');
+  } catch (err) {
+    console.error('Blog cron error:', err.message);
+  }
+});
+
+// ========== SEO CRON (Monday 8AM) ==========
+
+cron.schedule('0 8 * * 1', async () => {
+  try {
+    const [keywords, seoTips] = await Promise.all([
+      standaloneTavilySearch('AI automation small business SEO keywords high traffic low competition 2026'),
+      standaloneTavilySearch('SaaS website SEO quick wins meta descriptions title tags 2026')
+    ]);
+
+    await fetch(`${API_BASE}/api/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: 'Weekly SEO improvements for ppventures.tech',
+        description: `
+Improve SEO across ppventures.tech. Read current files and implement real changes.
+
+KEYWORD OPPORTUNITIES:
+${keywords.slice(0, 1000)}
+
+SEO QUICK WINS:
+${seoTips.slice(0, 1000)}
+
+IMPLEMENT directly in website files:
+- Update page titles and meta descriptions
+- Add target keywords naturally to headings
+- Improve internal linking between pages
+- Ensure automation page targets: "AI automation for small business"
+
+Make real file changes. Rebuild and restart after.
+        `.trim(),
+        assigned_to: orbitId,
+        status: 'backlog',
+        priority: 'medium'
+      })
+    });
+    console.log('🔍 SEO improvement task created');
+  } catch (err) {
+    console.error('SEO cron error:', err.message);
+  }
+});
+
+// ========== DAILY LEAD FINDER CRON (7AM) ==========
+
+cron.schedule('0 7 * * *', async () => {
+  try {
+    await fetch('https://ppventures.tech/api/automation/cron', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.CRON_SECRET || 'ppventures_cron_secret_2026'}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    console.log('🔍 Daily lead finder ran for all customers');
+  } catch (err) {
+    console.error('Lead finder cron error:', err.message);
+  }
+});
+
+// ========== WEBSITE ENHANCEMENT SYSTEM ==========
+
+const { getPageFiles, readFileContent, writeFileContent } = require('./lib/websiteScanner');
+
+const PAGES_TO_SCAN = [
+  'homepage', 'automation_landing', 'automation_dashboard',
+  'services', 'about', 'ai_agents', 'blog',
+  'contact', 'components', 'styles'
+];
+let currentPageIndex = 0;
+
+async function scanNextPage() {
+  try {
+    const pageName = PAGES_TO_SCAN[currentPageIndex];
+    currentPageIndex = (currentPageIndex + 1) % PAGES_TO_SCAN.length;
+
+    console.log(`🔍 Scanning: ${pageName}`);
+    const pages = getPageFiles();
+    const pageFiles = pages[pageName];
+    if (!pageFiles || Object.keys(pageFiles).length === 0) {
+      console.log(`No files found for ${pageName} — skipping`);
       return;
     }
 
-    const revenuePlanPrompt = `
-  You are Neo, CEO of PPVentures. Mission: $1M revenue.
+    const filesContent = Object.entries(pageFiles)
+      .map(([f, c]) => `=== ${f} ===\n${c}`).join('\n\n');
 
-  TODAY'S PLANNING SESSION
+    const bestPractices = await standaloneTavilySearch(
+      `${pageName.replace(/_/g, ' ')} page conversion best practices 2026`
+    );
 
-  REVENUE LEVERS (focus here):
-  - Website traffic and SEO for ppventures.tech
-  - Lead generation and conversion
-  - Content that builds authority and attracts clients
-  - Service positioning and pricing clarity
-  - Outreach opportunities and partnerships
+    const scanPrompt = `
+You are Atlas scanning the ${pageName} page of ppventures.tech.
+Find the top 2 specific improvements. Each must be a real file change.
 
-  WHAT ATLAS SHOULD RESEARCH TODAY:
-  Assign 2 research tasks that will directly inform revenue decisions.
-  Examples:
-  - "Research top 10 AI agent services clients are paying for in 2026"
-  - "Find 5 companies actively hiring AI consultants who could be clients"
-  - "Research what ppventures.tech competitors charge for agent development"
-  - "Find the top 3 keywords driving traffic to AI agency websites"
+CURRENT FILES:
+${filesContent.slice(0, 2500)}
 
-  WHAT ORBIT SHOULD IMPLEMENT TODAY:
-  Assign 2 implementation tasks based on yesterday's findings.
-  Examples:
-  - "Update ppventures.tech services page with specific pricing and packages"
-  - "Write and publish a blog post targeting [keyword] to drive inbound leads"
-  - "Update the AI Agents page to showcase our 3 agents as a service offering"
+BEST PRACTICES:
+${bestPractices ? bestPractices.slice(0, 600) : 'No external data'}
 
-  WHAT NEO SHOULD DO TODAY:
-  1 strategic task that only you can do.
-  Examples:
-  - "Write the outreach message template for cold contacting potential clients"
-  - "Define PPVentures service packages and pricing for the website"
-  - "Write a compelling case study from our Command Centre build"
+Check every element:
+- Headlines and copy — compelling and specific?
+- CTAs — clear and action oriented?
+- Missing sections competitors have?
+- SEO — title, meta description, heading hierarchy?
+- Trust signals — social proof, credibility?
 
-  Respond in JSON only:
-  {
-    "tasks": [
-      {
-        "title": "task title",
-        "description": "full implementation instructions",
-        "assign_to": "Neo or Atlas or Orbit",
-        "priority": "high or medium"
-      }
-    ]
-  }
-`;
+Respond in this EXACT format:
 
-    const planResult = await callMinimax('Neo', revenuePlanPrompt);
-    let plan;
-    try {
-      plan = JSON.parse(planResult);
-    } catch (e) {
-      const match = planResult.match(/\{[\s\S]*\}/);
-      if (match) plan = JSON.parse(match[0]);
-      else {
-        console.log('⚠️ Could not parse Neo revenue plan');
-        return;
-      }
-    }
+IMPROVEMENT_1:
+PAGE: ${pageName}
+FILE: [exact file path from website root]
+ISSUE: [what is wrong]
+FIX: [exactly what to change]
+IMPACT: high/medium/low
 
-    // Create tasks
-    for (const task of plan.tasks) {
-      let agentId;
-      if (task.assign_to === 'Atlas') agentId = atlas?.id;
-      else if (task.assign_to === 'Orbit') agentId = orbit?.id;
-      else agentId = neo.id;
-      
-      await fetch(`${API_BASE}/api/tasks`, {
+IMPROVEMENT_2:
+PAGE: ${pageName}
+FILE: [exact file path]
+ISSUE: [what is wrong]
+FIX: [exactly what to change]
+IMPACT: high/medium/low
+    `.trim();
+
+    const scanResult = sanitiseAgentOutput(await callMinimax('Atlas', scanPrompt));
+    const improvements = scanResult.split(/IMPROVEMENT_\d+:/).filter(Boolean);
+
+    for (const imp of improvements) {
+      const pageMatch = imp.match(/PAGE:\s*(.+)/);
+      const fileMatch = imp.match(/FILE:\s*(.+)/);
+      const issueMatch = imp.match(/ISSUE:\s*(.+)/);
+      const fixMatch = imp.match(/FIX:\s*([\s\S]*?)(?=IMPACT:|$)/);
+      const impactMatch = imp.match(/IMPACT:\s*(.+)/);
+
+      if (!fileMatch || !issueMatch || !fixMatch) continue;
+
+      // Skip if already queued recently
+      const recentRes = await fetchFromAPI('/api/website/enhancements?status=queued&limit=20');
+      const duplicate = recentRes?.enhancements?.some(e =>
+        e.issue.toLowerCase().includes(issueMatch[1].toLowerCase().slice(0, 20))
+      );
+      if (duplicate) continue;
+
+      await fetch(`${API_BASE}/api/website/enhancements`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: task.title,
-          description: task.description,
-          assigned_to: agentId,
-          status: 'backlog',
-          priority: task.priority
+          page: pageMatch?.[1]?.trim() || pageName,
+          file_path: fileMatch[1].trim(),
+          issue: issueMatch[1].trim(),
+          improvement: fixMatch[1].trim(),
+          impact: impactMatch?.[1]?.trim() || 'medium',
+          priority: impactMatch?.[1]?.trim() === 'high' ? 'high' : 'medium',
+          status: 'queued'
         })
       });
     }
-    
-    console.log(`✅ Neo created ${plan.tasks.length} revenue-focused tasks`);
-    
-    await fetch(`${API_BASE}/api/logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        api_key: neo.api_key, 
-        message: `💰 Revenue planning complete: ${plan.tasks.length} tasks created`, 
-        log_type: 'task' 
-      })
-    });
-    
+
+    console.log(`✅ Scanned ${pageName} — ${improvements.length} improvements queued`);
+
   } catch (err) {
-    console.error('🔴 Revenue planning error:', err.message);
+    console.error('scanNextPage error:', err.message);
   }
 }
 
-// ========== Neo's Daily CEO Report to Deva (7PM) ==========
+// Scan one page every 30 minutes
+cron.schedule('*/30 * * * *', scanNextPage);
 
-async function neoCEOReport() {
+// Start after 2 minutes
+setTimeout(scanNextPage, 2 * 60 * 1000);
+
+// ========== ENHANCEMENT EXECUTOR ==========
+
+async function executeNextEnhancement() {
   try {
-    console.log('📊 Neo generating CEO report...');
-    
-    const today = new Date().toISOString().split('T')[0];
-    
-    // Get today's completed tasks
-    const tasksRes = await fetch(`${API_BASE}/api/tasks?status=done&date=${today}`);
-    const tasksData = await tasksRes.json();
-    const tasks = tasksData.tasks || [];
-    
-    // Get agents
-    const agentsRes = await fetch(`${API_BASE}/api/agents`);
-    const agentsData = await agentsRes.json();
-    const agents = agentsData.agents || [];
-    
-    const neo = agents.find(a => a.name === 'Neo');
-    const atlas = agents.find(a => a.name === 'Atlas');
-    const orbit = agents.find(a => a.name === 'Orbit');
-    
-    if (!neo) {
-      console.log('⚠️ Neo not found');
+    const res = await fetchFromAPI('/api/website/enhancements?status=queued&limit=1');
+    const enhancement = res?.enhancements?.[0];
+    if (!enhancement) {
+      console.log('No enhancements to execute');
       return;
     }
 
-    // Group tasks by agent
-    const neoTasks = tasks.filter(t => t.assigned_to === neo.id).map(t => t.title).join('\n') || 'None';
-    const atlasTasks = tasks.filter(t => t.assigned_to === atlas?.id).map(t => t.title).join('\n') || 'None';
-    const orbitTasks = tasks.filter(t => t.assigned_to === orbit?.id).map(t => t.title).join('\n') || 'None';
-
-    const ceoReportPrompt = `
-    You are Neo, CEO of PPVentures. Write your daily report to Deva.
-
-    NEO COMPLETED TODAY:
-    ${neoTasks}
-
-    ATLAS COMPLETED TODAY:
-    ${atlasTasks}
-
-    ORBIT COMPLETED TODAY:
-    ${orbitTasks}
-
-    Write a CEO-style daily report using this exact format:
-
-    ---
-    📈 PROGRESS TOWARD $1M
-    [One sentence on how today moved us closer to $1M revenue]
-
-    ✅ DONE TODAY
-    [Bullet list — only the 3 most impactful things completed]
-
-    🔍 INTELLIGENCE
-    [1-2 key insights from Atlas's research that Deva should know]
-
-    🚀 TOMORROW'S FOCUS
-    [What Neo, Atlas and Orbit will each work on tomorrow]
-
-    ⚠️ DECISIONS NEEDED
-    [Any decisions only Deva can make — or NONE if nothing needed]
-    ---
-
-    Keep the entire report under 200 words.
-    Be direct. CEO to founder. No fluff.
-    `;
-
-    const report = await callMinimax('Neo', ceoReportPrompt);
-    
-    // Save as document
-    await fetch(`${API_BASE}/api/docs/save`, {
-      method: 'POST',
+    // Mark in progress
+    await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: neo.api_key,
-        title: `Neo CEO Report — ${today}`,
-        content: report,
-        format: 'markdown',
-        category: 'report'
-      })
+      body: JSON.stringify({ status: 'in_progress', agent_id: orbitId })
     });
-    
-    // Save as notification
-    await fetch(`${API_BASE}/api/notifications`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        title: `Neo's Daily Report — ${today}`,
-        message: report,
-        type: 'report'
-      })
-    });
-    
-    await fetch(`${API_BASE}/api/logs`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        api_key: neo.api_key, 
-        message: `📊 Neo sent daily CEO report to Deva`, 
-        log_type: 'info' 
-      })
-    });
-    
-    console.log('✅ CEO report saved and notification sent');
-    
+
+    console.log(`🔧 Implementing: ${enhancement.issue}`);
+
+    const currentContent = readFileContent(enhancement.file_path);
+
+    if (!currentContent) {
+      await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'failed' })
+      });
+      console.log(`❌ File not found: ${enhancement.file_path}`);
+      return;
+    }
+
+    const implementPrompt = `
+You are Orbit. Implement this improvement to ppventures.tech.
+Write only the complete updated file content.
+
+FILE: ${enhancement.file_path}
+ISSUE: ${enhancement.issue}
+REQUIRED FIX: ${enhancement.improvement}
+
+CURRENT FILE:
+${currentContent.slice(0, 3000)}
+
+Write the COMPLETE updated file with ONLY this improvement applied.
+Keep everything else exactly the same.
+Start with the first line immediately.
+    `.trim();
+
+    const newContent = sanitiseAgentOutput(
+      await callMinimax('Orbit', implementPrompt)
+    );
+
+    if (!newContent || newContent.length < 50) {
+      await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'failed' })
+      });
+      console.log('❌ Failed to generate new content');
+      return;
+    }
+
+    const writeResult = writeFileContent(enhancement.file_path, newContent);
+
+    if (writeResult.success) {
+      // Rebuild and restart
+      console.log('🔄 Rebuilding website...');
+      const { execSync } = require('child_process');
+      try {
+        execSync('npm run build', { cwd: '/home/deva/.openclaw/workspace/ppventures', stdio: 'pipe' });
+        execSync('pm2 restart ppventures', { stdio: 'pipe' });
+      } catch (e) {
+        console.log('Build warning:', e.message);
+      }
+
+      await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'implemented',
+          before_content: currentContent.slice(0, 500),
+          after_content: newContent.slice(0, 500),
+          implemented_at: new Date().toISOString()
+        })
+      });
+
+      console.log(`✅ Implemented: ${enhancement.issue}`);
+    } else {
+      await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'failed' })
+      });
+      console.log(`❌ Write failed: ${writeResult.error}`);
+    }
+
   } catch (err) {
-    console.error('🔴 CEO report error:', err.message);
+    console.error('executeNextEnhancement error:', err.message);
   }
 }
 
-// Schedule Autonomous Enhancement Crons
-// Atlas scan at 8AM daily
-cron.schedule('0 8 * * *', atlasDailyScan);
+// Execute one enhancement every 20 minutes
+cron.schedule('*/20 * * * *', executeNextEnhancement);
 
-// Neo creates tasks at 9AM daily
-cron.schedule('0 9 * * *', neoCreateTasks);
+// Start after 5 minutes
+setTimeout(executeNextEnhancement, 5 * 60 * 1000);
 
-// Neo revenue-focused planning at 7AM daily (before Atlas)
-cron.schedule('0 7 * * *', neoRevenuePlanning);
+// ========== START ==========
 
-// Orbit evening report at 6PM daily
-cron.schedule('0 18 * * *', orbitEveningReport);
-
-// Neo CEO report to Deva at 7PM daily
-cron.schedule('0 19 * * *', neoCEOReport);
-
-// Run initial scan on startup (delayed)
-setTimeout(() => {
-  console.log('⏳ Running initial Atlas scan in 60s...');
-  atlasDailyScan();
-  neoRevenuePlanning();
-}, 60000);
-
-console.log('✅ Autonomous Enhancement System loaded');
-console.log('   - Neo revenue planning: 7AM daily');
-console.log('   - Atlas scan: 8AM daily');
-console.log('   - Neo tasks: 9AM daily');
-console.log('   - Orbit report: 6PM daily');
-console.log('   - Neo CEO report: 7PM daily');
+startAllAgents().catch(console.error);

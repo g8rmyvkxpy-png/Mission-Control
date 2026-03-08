@@ -65,6 +65,27 @@ export default function Home() {
         </div>
       </div>
 
+      {/* 🚀 NEW: Business AI Automation Suite Banner */}
+      <section style={{ padding: '40px 20px', background: 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', fontWeight: '600', color: 'rgba(255,255,255,0.9)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+            🚀 NEW
+          </div>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', color: 'white', marginBottom: '8px' }}>
+            Business AI Automation Suite
+          </h2>
+          <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.9)', marginBottom: '16px' }}>
+            Stop working 60-hour weeks. Let AI agents run your ops.
+          </p>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', marginBottom: '20px' }}>
+            14-day free trial — $297/month after.
+          </p>
+          <Link href="/automation" style={{ display: 'inline-block', background: 'white', color: '#16a34a', fontWeight: '700', padding: '12px 24px', borderRadius: '8px', textDecoration: 'none' }}>
+            Try It Free →
+          </Link>
+        </div>
+      </section>
+
       {/* Newsletter */}
       <section style={{ padding: '60px 40px', background: '#1a1a1d', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>

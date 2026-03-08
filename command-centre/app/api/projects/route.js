@@ -19,7 +19,7 @@ export async function GET(request) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
       
-      // Get linked tasks
+      // Get linked tasks (from project_tasks junction table)
       const { data: linkedTasks } = await supabaseAdmin
         .from('project_tasks')
         .select('task_id')
@@ -27,14 +27,24 @@ export async function GET(request) {
       
       const taskIds = linkedTasks?.map(t => t.task_id) || [];
       
-      let tasks = [];
+      // Also get tasks that have project_id directly set
+      const { data: directTasks } = await supabaseAdmin
+        .from('tasks')
+        .select('*')
+        .eq('project_id', projectId);
+      
+      let allTasks = [];
       if (taskIds.length > 0) {
         const { data } = await supabaseAdmin
           .from('tasks')
           .select('*')
           .in('id', taskIds);
-        tasks = data || [];
+        allTasks = data || [];
       }
+      
+      // Merge with direct tasks
+      const directTaskIds = directTasks?.map(t => t.id) || [];
+      allTasks = [...allTasks, ...(directTasks || []).filter(t => !directTaskIds.includes(t.id))];
       
       // Get notes
       const { data: notes } = await supabaseAdmin
@@ -43,7 +53,7 @@ export async function GET(request) {
         .eq('project_id', projectId)
         .order('created_at', { ascending: false });
       
-      return NextResponse.json({ project, tasks, notes: notes || [] });
+      return NextResponse.json({ project, tasks: allTasks, notes: notes || [] });
     }
     
     // List all projects
@@ -56,18 +66,45 @@ export async function GET(request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    // Get task counts
+    // Get task counts from both project_tasks and tasks.project_id
     const projectsWithCounts = await Promise.all((projects || []).map(async (project) => {
-      const { count } = await supabaseAdmin
+      // Count from junction table
+      const { count: junctionCount } = await supabaseAdmin
         .from('project_tasks')
         .select('*', { count: 'exact', head: true })
         .eq('project_id', project.id);
-      return { ...project, task_count: count || 0 };
+      
+      // Count from tasks.project_id
+      const { count: directCount } = await supabaseAdmin
+        .from('tasks')
+        .select('*', { count: 'exact', head: true })
+        .eq('project_id', project.id);
+      
+      const taskCount = (junctionCount || 0) + (directCount || 0);
+      
+      // Calculate progress from tasks if progress is 0 or null
+      let progress = project.progress || 0;
+      
+      if (taskCount > 0 && progress === 0) {
+        // Get tasks to calculate progress
+        const { data: tasks } = await supabaseAdmin
+          .from('tasks')
+          .select('status')
+          .eq('project_id', project.id);
+        
+        if (tasks && tasks.length > 0) {
+          const done = tasks.filter(t => t.status === 'done' || t.status === 'completed').length;
+          progress = Math.round((done / tasks.length) * 100);
+        }
+      }
+      
+      return { ...project, task_count: taskCount, progress };
     }));
     
     return NextResponse.json({ projects: projectsWithCounts });
     
   } catch (err) {
+    console.error('Projects API error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

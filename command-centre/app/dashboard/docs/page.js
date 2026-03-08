@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react';
 
+function stripMarkdown(text) {
+  if (!text) return '';
+  return text
+    .replace(/^#{1,6}\s+/gm, '')        // remove # headings
+    .replace(/\*\*(.*?)\*\*/g, '$1')     // remove bold
+    .replace(/\*(.*?)\*/g, '$1')         // remove italic
+    .replace(/`{1,3}(.*?)`{1,3}/g, '$1') // remove code
+    .replace(/\[(.*?)\]\(.*?\)/g, '$1')  // remove links
+    .replace(/^[-*+]\s+/gm, '')          // remove list bullets
+    .replace(/^>\s+/gm, '')               // remove blockquotes
+    .replace(/^(ACTION|TITLE|CONTENT|FILE|REASON):\s*.*/gm, '') // remove agent action lines
+    .replace(/^[-—]{3,}/gm, '')          // remove horizontal rules
+    .replace(/\n{2,}/g, ' ')             // collapse multiple newlines
+    .trim();
+}
+
 export default function DocsPage() {
   const [docs, setDocs] = useState([]);
   const [agents, setAgents] = useState([]);
@@ -69,7 +85,6 @@ export default function DocsPage() {
   }
 
   function renderMarkdown(content) {
-    // Simple markdown rendering
     return content
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
@@ -83,12 +98,39 @@ export default function DocsPage() {
     return <div className="loading">Loading...</div>;
   }
 
+  const cardStyle = {
+    overflow: 'hidden',
+    minWidth: 0,
+    wordBreak: 'break-word',
+    cursor: 'pointer'
+  };
+
+  const titleStyle = {
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+    maxWidth: '100%',
+    fontWeight: 600,
+    marginBottom: 8
+  };
+
+  const previewStyle = {
+    overflow: 'hidden',
+    display: '-webkit-box',
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: 'vertical',
+    wordBreak: 'break-word',
+    fontSize: 12,
+    color: 'var(--text-secondary)',
+    marginBottom: 12
+  };
+
   return (
-    <div>
+    <div style={{ padding: 24 }}>
       {/* Header */}
       <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>Docs</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4, color: 'var(--text-primary)' }}>Docs</h1>
           <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
             Agent-generated documents and content
           </p>
@@ -135,21 +177,27 @@ export default function DocsPage() {
           <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Agent-generated content will appear here</p>
         </div>
       ) : (
-        <div className="grid grid-3">
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', 
+          gap: 16, 
+          width: '100%',
+          overflow: 'hidden'
+        }}>
           {docs.map((doc) => (
             <div
               key={doc.id}
               className="card"
-              style={{ cursor: 'pointer' }}
+              style={cardStyle}
               onClick={() => setSelectedDoc(doc)}
             >
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>{doc.title}</div>
+              <div style={titleStyle}>{doc.title}</div>
               
-              <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {doc.content.substring(0, 100)}...
+              <p style={previewStyle}>
+                {stripMarkdown(doc.content).substring(0, 100)}...
               </p>
               
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                   {doc.agent && <span style={{ fontSize: 10, color: doc.agent.avatar_color || '#3b82f6' }}>{doc.agent.name}</span>}
                   <span style={{ 
@@ -166,7 +214,7 @@ export default function DocsPage() {
                   </span>
                 </div>
                 
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>
                   {doc.word_count} words
                 </span>
               </div>
@@ -322,7 +370,7 @@ function NewDocModal({ agents, onClose, onCreated }) {
             <div className="form-group">
               <label className="form-label">Format</label>
               <select className="form-select" value={format} onChange={(e) => setFormat(e.target.value)}>
-                <option value="markdown">Markdown</option>
+                <option value="markdown"> Markdown</option>
                 <option value="plaintext">Plaintext</option>
                 <option value="html">HTML</option>
                 <option value="json">JSON</option>
