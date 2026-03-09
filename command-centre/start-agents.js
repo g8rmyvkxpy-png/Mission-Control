@@ -28,6 +28,12 @@ async function standaloneTavilySearch(query) {
     if (!res.ok) {
       console.log(`[Tavily] API error: ${res.status}`);
       return null;
+
+// Wrapper for callMinimax compatibility
+async function callMinimax(agentName, prompt) {
+  return await executeWithMinimax(prompt, null, { name: agentName });
+}
+
     }
     const data = await res.json();
     const snippets = data.results?.map(r =>
@@ -446,7 +452,9 @@ IMPORTANT: Web search results are ALREADY PROVIDED in the context below. Do NOT 
     throw new Error(`Minimax API error: ${response.status} - ${error}`);
   }
 
-  const data = await response.json();
+  const text = await response.text();
+      if (!text) throw new Error("Empty response from Minimax API");
+      const data = JSON.parse(text);
   
   if (data.base_resp && data.base_resp.status_code && data.base_resp.status_code !== 0) {
     throw new Error(`Minimax API error: ${data.base_resp.status_msg}`);

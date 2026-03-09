@@ -131,6 +131,43 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Testimonials */}
+      <section style={{ padding: '80px 40px', background: '#1a1a1d', position: 'relative', zIndex: 1 }}>
+        <h2 className="section-title">What Founders Say</h2>
+        <div className="grid" style={{ maxWidth: '1200px', margin: '48px auto 0' }}>
+          <div className="card">
+            <p style={{ fontSize: '16px', fontStyle: 'italic', color: '#d4d4d8', marginBottom: '20px' }}>"PP Ventures helped us deploy 12 AI agents in 3 weeks. Our support ops now run with 80% less manual work."</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>SK</div>
+              <div><div style={{ fontWeight: '600' }}>Sarah K.</div><div style={{ fontSize: '12px', color: '#71717a' }}>CEO, TechFlow</div></div>
+            </div>
+          </div>
+          <div className="card">
+            <p style={{ fontSize: '16px', fontStyle: 'italic', color: '#d4d4d8', marginBottom: '20px' }}>"Their autonomous company framework let us scale to $200K ARR without hiring a single additional employee."</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#22c55e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>MR</div>
+              <div><div style={{ fontWeight: '600' }}>Mike R.</div><div style={{ fontSize: '12px', color: '#71717a' }}>Founder, DataPulse</div></div>
+            </div>
+          </div>
+          <div className="card">
+            <p style={{ fontSize: '16px', fontStyle: 'italic', color: '#d4d4d8', marginBottom: '20px' }}>"We went from 0 to 24/7 AI operations. The command centre alone paid for itself in the first month."</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#8b5cf6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>JL</div>
+              <div><div style={{ fontWeight: '600' }}>Jennifer L.</div><div style={{ fontSize: '12px', color: '#71717a' }}>CTO, ScaleOps</div></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section style={{ padding: '80px 40px', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: '700px', margin: '0 auto', textAlign: 'center' }}>
+          <h2 style={{ fontSize: '40px', fontWeight: '700', marginBottom: '16px' }}>Ready to automate?</h2>
+          <p style={{ fontSize: '18px', color: '#a1a1aa', marginBottom: '32px' }}>Let's build your autonomous company.</p>
+          <Link href="/contact" className="btn btn-primary">Get Started</Link>
+        </div>
+      </section>
+
       <Footer />
     </div>
   );

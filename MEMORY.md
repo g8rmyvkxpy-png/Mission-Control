@@ -30,3 +30,14 @@
 - MiniMax-M2.5 as primary model
 - Personality system wired into agent execution
 - Memory flush configured for 40K token reserve
+## Recent Key Decisions
+- [2026-03-08] ### Zero Idle Agent System
+- [2026-03-08] ### Agent Data Access Fix
+- [2026-03-08] ### Fake Tool Call Fix
+- [2026-03-08] ### Direct File Reading
+- [2026-03-08] ### Action-Based Execution
+- [2026-03-08] ### Product Discovery Mission Started
+- [2026-03-07] ### PP Ventures Pricing Page Added
+- [2026-03-04] ### PP Ventures Blog Enhancement
+- [2026-03-04] ### Summary
+- [2026-03-04] ### PP Ventures Blog Addition

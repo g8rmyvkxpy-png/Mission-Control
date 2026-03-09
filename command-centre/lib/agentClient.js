@@ -56,7 +56,25 @@ function createAgentClient(apiKey, agentName = 'Agent') {
     async getBacklogTasks(agentId) {
       const res = await fetch(`${API_BASE}/api/tasks?agent_id=${agentId}&status=backlog`);
       const data = await res.json();
-      return data.tasks || [];
+      const tasks = data.tasks || [];
+      
+      // Auto-claim unassigned tasks
+      for (const task of tasks) {
+        if (!task.assigned_to) {
+          // Claim the task by setting assigned_to
+          await fetch(`${API_BASE}/api/tasks`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              id: task.id, 
+              assigned_to: agentId 
+            })
+          });
+          console.log(`[Agent] Auto-claimed task: ${task.title}`);
+        }
+      }
+      
+      return tasks;
     },
 
     async updateTaskStatus(taskId, status, result = null) {
@@ -134,7 +152,70 @@ function getActivityLogMessage(agentName, personality, action, data = {}) {
 /**
  * Execute a task using Minimax API with personality
  */
-async function executeWithMinimax(prompt, agent) {
+
+// RPA keywords that trigger browser automation
+const RPA_KEYWORDS = [
+  'scrape', 'visit', 'check website', 'monitor', 'extract from', 
+  'go to', 'browse', 'find on', 'search web for', 'producthunt',
+  'take screenshot', 'extract', 'get links from'
+];
+
+// Check if task requires RPA
+function needsRPA(taskDescription) {
+  const lower = taskDescription.toLowerCase();
+  return RPA_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
+// Execute RPA task
+async function executeRPATask(taskDescription, targetUrl, clientId) {
+  try {
+    const rpaRes = await fetch('http://72.62.231.18:3001/api/rpa/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task_type: 'scrape',
+        target_url: targetUrl,
+        instructions: taskDescription,
+        client_id: clientId,
+        agent_id: 'neo'
+      })
+    });
+    
+    const rpaResult = await rpaRes.json();
+    return rpaResult;
+  } catch (error) {
+    console.error('[RPA] Task failed:', error.message);
+    return { success: false, error: error.message };
+  }
+}
+
+async function queryRAGContext(clientId, query) {
+async function queryRAGContext(clientId, query) {
+  if (!clientId) return null;
+  
+  try {
+    const res = await fetch('http://72.62.231.18:3006/api/rag/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientId, query })
+    });
+    const data = await res.json();
+    
+    if (data.chunks && data.chunks.length > 0) {
+      const context = data.chunks.map(c => c.summary).join('\n\n');
+      return {
+        context: `\n\nRELEVANT CLIENT DOCUMENTS:\n${context}\n\nUse this context from the client's documents to inform your response.`,
+        faithfulness: data.faithfulness,
+        relevance: data.relevance
+      };
+    }
+  } catch (e) {
+    console.log('RAG query failed:', e.message);
+  }
+  return null;
+}
+
+async function executeWithMinimax(prompt, agent, clientId = null) {
   if (!MINIMAX_API_KEY || MINIMAX_API_KEY === 'your-minimax-api-key') {
     throw new Error('MINIMAX_API_KEY not configured');
   }
@@ -182,40 +263,106 @@ CORE RULES:
 - Always use your specialisation when approaching tasks
 - Always follow your working style
 - You have Tavily web search — use it for any research tasks
+- If asked to scrape, visit, browse, or extract from websites, use the RPA system instead of just searching
 - Never say you cannot do something — find a way
 - Sign off responses with your catchphrase occasionally
 - Use structured formatting appropriate to your role
 - Stay in character as ${agent.name}`;
 
-  const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${MINIMAX_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'MiniMax-M2.5',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ],
-      group_id: MINIMAX_GROUP_ID || undefined
-    })
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Minimax API error: ${response.status} - ${error}`);
+  // Check if this is an RPA task
+  const isRPATask = needsRPA(prompt);
+  let rpaResult = null;
+  
+  // Extract URL from prompt if RPA task
+  let targetUrl = null;
+  if (isRPATask) {
+    // Try to extract URL from prompt
+    const urlMatch = prompt.match(/https?:\/\/[^\s]+/);
+    if (urlMatch) {
+      targetUrl = urlMatch[0];
+    } else {
+      // Default to Google search if no URL
+      const searchTerm = prompt.replace(/scrape|visit|check|monitor|extract|browse|find|search/gi, '').trim();
+      targetUrl = `https://www.google.com/search?q=${encodeURIComponent(searchTerm)}`;
+    }
+    
+    console.log(`[Agent] Detected RPA task, URL: ${targetUrl}`);
   }
 
-  const data = await response.json();
+  // Query RAG for client context if clientId is available
+  let ragContext = '';
+  if (clientId && prompt.length > 50) {
+    const ragResult = await queryRAGContext(clientId, prompt.substring(0, 200));
+    if (ragResult) {
+      ragContext = ragResult.context;
+      console.log(`[RAG] Context found with faithfulness: ${ragResult.faithfulness}, relevance: ${ragResult.relevance}`);
+    }
+  }
+
+  // Build request payload
+  const requestBody = {
+    model: 'MiniMax-M2.5',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: ragContext ? prompt + ragContext : prompt }
+    ],
+    group_id: MINIMAX_GROUP_ID || undefined
+  };
+
+  // Retry with exponential backoff
+  const maxRetries = 3;
+  let lastError = null;
   
-  // Extract the response content
-  if (data.choices && data.choices[0] && data.choices[0].message) {
-    return data.choices[0].message.content;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`[Minimax] Attempt ${attempt}/${maxRetries}...`);
+      
+      const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${MINIMAX_API_KEY}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Minimax] API error ${response.status}: ${errorText.substring(0, 200)}`);
+        
+        // If rate limited, retry with backoff
+        if (response.status === 429 || response.status >= 500) {
+          const waitTime = Math.pow(2, attempt) * 1000;
+          console.log(`[Minimax] Rate limited, waiting ${waitTime}ms...`);
+          await new Promise(r => setTimeout(r, waitTime));
+          continue;
+        }
+        throw new Error(`Minimax API error: ${response.status} - ${errorText.substring(0, 100)}`);
+      }
+
+      const data = await response.json();
+      
+      // Extract the response content
+      if (data.choices && data.choices[0] && data.choices[0].message) {
+        console.log(`[Minimax] Success on attempt ${attempt}`);
+        return data.choices[0].message.content;
+      }
+      
+      return JSON.stringify(data);
+      
+    } catch (e) {
+      lastError = e;
+      console.error(`[Minimax] Attempt ${attempt} failed: ${e.message}`);
+      
+      if (attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000;
+        console.log(`[Minimax] Retrying in ${waitTime}ms...`);
+        await new Promise(r => setTimeout(r, waitTime));
+      }
+    }
   }
   
-  return JSON.stringify(data);
+  throw lastError || new Error('Minimax API failed after retries');
 }
 
 /**
@@ -272,7 +419,8 @@ async function runAgentLoop(agent) {
         
         try {
           const prompt = `${task.title}${task.description ? '\n\n' + task.description : ''}`;
-          const result = await executeWithMinimax(prompt, agentWithPersonality);
+          const clientId = task.client_id || task.org_id || null;
+          const result = await executeWithMinimax(prompt, agentWithPersonality, clientId);
           
           // Check if task needs review/approval (explicit in description)
           const needsReview = task.description && 
