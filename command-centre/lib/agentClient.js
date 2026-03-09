@@ -190,7 +190,6 @@ async function executeRPATask(taskDescription, targetUrl, clientId) {
 }
 
 async function queryRAGContext(clientId, query) {
-async function queryRAGContext(clientId, query) {
   if (!clientId) return null;
   
   try {
@@ -300,13 +299,16 @@ CORE RULES:
   }
 
   // Build request payload
+  // GroupId must be in URL as query param, not in request body
+  const groupId = MINIMAX_GROUP_ID || '';
+  const apiUrl = `https://api.minimax.io/v1/text/chatcompletion_v2${groupId ? `?GroupId=${groupId}` : ''}`;
+  
   const requestBody = {
     model: 'MiniMax-M2.5',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: ragContext ? prompt + ragContext : prompt }
-    ],
-    group_id: MINIMAX_GROUP_ID || undefined
+    ]
   };
 
   // Retry with exponential backoff
@@ -317,7 +319,7 @@ CORE RULES:
     try {
       console.log(`[Minimax] Attempt ${attempt}/${maxRetries}...`);
       
-      const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
+      const response = await fetch(apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -342,13 +344,21 @@ CORE RULES:
 
       const data = await response.json();
       
+      // Check for API-level errors in response body (e.g., insufficient balance)
+      if (data.base_resp && data.base_resp.status_code !== 0) {
+        const errMsg = data.base_resp.status_msg || `API error code: ${data.base_resp.status_code}`;
+        console.error(`[Minimax] API error: ${errMsg}`);
+        throw new Error(`Minimax API error: ${errMsg}`);
+      }
+      
       // Extract the response content
       if (data.choices && data.choices[0] && data.choices[0].message) {
         console.log(`[Minimax] Success on attempt ${attempt}`);
         return data.choices[0].message.content;
       }
       
-      return JSON.stringify(data);
+      // If no valid response, throw error
+      throw new Error(`Minimax API returned no choices: ${JSON.stringify(data).substring(0, 100)}`);
       
     } catch (e) {
       lastError = e;

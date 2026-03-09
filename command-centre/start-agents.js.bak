@@ -28,6 +28,12 @@ async function standaloneTavilySearch(query) {
     if (!res.ok) {
       console.log(`[Tavily] API error: ${res.status}`);
       return null;
+
+// Wrapper for callMinimax compatibility
+async function callMinimax(agentName, prompt) {
+  return await executeWithMinimax(prompt, null, { name: agentName });
+}
+
     }
     const data = await res.json();
     const snippets = data.results?.map(r =>
@@ -36,23 +42,6 @@ async function standaloneTavilySearch(query) {
     return `Answer: ${data.answer || 'No answer'}\n\nSources:\n${snippets}`;
   } catch (err) {
     console.log(`[Tavily] Search failed: ${err.message}`);
-    return null;
-  }
-}
-
-// Wrapper for callMinimax compatibility
-async function callMinimax(agentName, prompt) {
-  return await executeWithMinimax(prompt, null, { name: agentName });
-}
-
-// Helper to fetch from Command Centre API
-async function fetchFromAPI(endpoint) {
-  const API_BASE = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3001';
-  try {
-    const res = await fetch(`${API_BASE}${endpoint}`);
-    return await res.json();
-  } catch (err) {
-    console.log(`[fetchFromAPI] Error: ${err.message}`);
     return null;
   }
 }
@@ -193,21 +182,12 @@ async function createAgentClient(apiKey) {
     },
 
     async log(message, logType = 'info') {
-      try {
-        const res = await fetch(`${API_BASE}/api/logs`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ api_key: apiKey, message, log_type: logType })
-        });
-        if (!res.ok) {
-          console.log(`[Client.log] Error: ${res.status}`);
-          return null;
-        }
-        return await res.json();
-      } catch (err) {
-        console.log(`[Client.log] Exception: ${err.message}`);
-        return null;
-      }
+      const res = await fetch(`${API_BASE}/api/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey, message, log_type: logType })
+      });
+      return res.json();
     },
 
     async getBacklogTasks(agentId) {
@@ -231,24 +211,15 @@ async function createAgentClient(apiKey) {
     },
 
     async updateTaskStatus(taskId, status, result = null) {
-      const body = { id: taskId, status };
+      const body = { status };
       if (result) body.result = result;
       
-      try {
-        const res = await fetch(`${API_BASE}/api/tasks`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        if (!res.ok) {
-          console.log(`[Client.updateTaskStatus] Error: ${res.status}`);
-          return null;
-        }
-        return await res.json();
-      } catch (err) {
-        console.log(`[Client.updateTaskStatus] Exception: ${err.message}`);
-        return null;
-      }
+      const res = await fetch(`${API_BASE}/api/tasks?id=${taskId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      return res.json();
     },
 
     async createTask(title, description, assignedTo, priority = 'medium') {
@@ -361,12 +332,7 @@ async function executeWithMinimax(prompt, client = null, agent = null) {
   }
 
   const fullPrompt = context ? `${prompt}\n${context}` : prompt;
-  
-  // GroupId must be in URL as query param
-  const groupId = MINIMAX_GROUP_ID || '';
-  const apiUrl = `https://api.minimax.io/v1/text/chatcompletion_v2${groupId ? `?GroupId=${groupId}` : ''}`;
-  
-  const response = await fetch(apiUrl, {
+  const response = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -487,16 +453,8 @@ IMPORTANT: Web search results are ALREADY PROVIDED in the context below. Do NOT 
   }
 
   const text = await response.text();
-  if (!text) throw new Error("Empty response from Minimax API");
-  
-  let data;
-  try {
-    data = JSON.parse(text);
-  } catch (parseErr) {
-    console.error(`[Minimax] JSON parse error: ${parseErr.message}`);
-    console.error(`[Minimax] Response text: ${text.substring(0, 200)}`);
-    throw new Error(`Minimax JSON parse error: ${parseErr.message}`);
-  }
+      if (!text) throw new Error("Empty response from Minimax API");
+      const data = JSON.parse(text);
   
   if (data.base_resp && data.base_resp.status_code && data.base_resp.status_code !== 0) {
     throw new Error(`Minimax API error: ${data.base_resp.status_msg}`);
@@ -824,11 +782,7 @@ Orbit specializes in: operations, summaries, monitoring, reporting
 
 Only suggest subtasks if is_complex is true. Maximum 2 subtasks.`;
 
-      // GroupId must be in URL as query param
-      const groupId2 = MINIMAX_GROUP_ID || '';
-      const apiUrl2 = `https://api.minimax.io/v1/text/chatcompletion_v2${groupId2 ? `?GroupId=${groupId2}` : ''}`;
-      
-      const complexityRes = await fetch(apiUrl2, {
+      const complexityRes = await fetch('https://api.minimax.io/v1/text/chatcompletion_v2', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -839,7 +793,8 @@ Only suggest subtasks if is_complex is true. Maximum 2 subtasks.`;
           messages: [
             { role: 'system', content: 'You are a task analysis assistant. Respond only in JSON.' },
             { role: 'user', content: complexityPrompt }
-          ]
+          ],
+          group_id: MINIMAX_GROUP_ID
         })
       });
       

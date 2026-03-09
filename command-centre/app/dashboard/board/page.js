@@ -37,7 +37,7 @@ export default function BoardPage() {
 
   async function handleStatusChange(taskId, newStatus) {
     const res = await fetch(`/api/tasks?id=${taskId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus })
     });
@@ -49,7 +49,7 @@ export default function BoardPage() {
 
   async function handleApprove(taskId) {
     const res = await fetch(`/api/tasks?id=${taskId}`, {
-      method: 'PATCH',
+      method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'done' })
     });

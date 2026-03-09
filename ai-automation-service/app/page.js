@@ -208,6 +208,28 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* What Our Agents Actually Do - RPA Capabilities */}
+        <section id="agents-do" style={{ padding: '6rem 2rem', maxWidth: '1100px', margin: '0 auto', background: '#0a0a0a', borderRadius: '24px', marginBottom: '4rem' }}>
+          <h2 style={{ textAlign: 'center', fontSize: '2.5rem', marginBottom: '1rem' }}>Your AI Agents Work While You Sleep</h2>
+          <p style={{ textAlign: 'center', color: '#888', marginBottom: '3rem', fontSize: '1.1rem' }}>Powered by RPA Technology</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            {[
+              { icon: '🔍', title: 'Lead Scraping', desc: 'Agents browse LinkedIn, Google and directories to find your ideal clients automatically' },
+              { icon: '📧', title: 'Personalised Outreach', desc: 'AI writes and sends hyper-personalised messages to every lead' },
+              { icon: '📅', title: 'Meeting Booking', desc: 'Agents handle back and forth scheduling so you never miss a lead' },
+              { icon: '🕵️', title: 'Competitor Monitoring', desc: 'Agents visit competitor sites daily and alert you to any changes' },
+              { icon: '📰', title: 'Industry News', desc: 'Agents scrape the web every morning for news relevant to your business' },
+              { icon: '🌐', title: 'Website Audits', desc: 'Weekly automated checks of your site for speed, broken links and SEO issues' }
+            ].map((item, i) => (
+              <div key={i} style={{ background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '0.8rem' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#fff' }}>{item.title}</h3>
+                <p style={{ color: '#888', fontSize: '0.95rem', lineHeight: '1.5', margin: 0 }}>{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Live Demo */}
         <section id="demo" style={{ padding: '4rem 2rem', background: '#111', borderTop: '1px solid #222', textAlign: 'center' }}>
           <h2 style={{ fontSize: '2rem', marginBottom: '2rem' }}>🔥 Live Demo</h2>
@@ -233,9 +255,9 @@ export default function LandingPage() {
           <p style={{ textAlign: 'center', color: '#888', marginBottom: '3rem' }}>Start free. Upgrade when you're ready.</p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2rem' }}>
             {[
-              { tier: 'Starter', price: 297, features: ['10 leads/day', 'Email outreach', 'Daily reports', 'Basic support'], color: '#666', popular: false },
-              { tier: 'Growth', price: 597, features: ['25 leads/day', 'Email + LinkedIn', 'Priority support', 'Custom workflows'], color: '#10b981', popular: true },
-              { tier: 'Enterprise', price: 997, features: ['Unlimited leads', 'All integrations', 'Dedicated agent', 'Custom development'], color: '#3b82f6', popular: false }
+              { tier: 'Starter', price: 297, features: ['10 leads scraped/day', 'Personalised email outreach', 'Daily industry news digest', 'Daily performance report'], color: '#666', popular: false },
+              { tier: 'Growth', price: 597, features: ['25 leads scraped/day', 'Email + LinkedIn outreach', 'Daily competitor monitoring', 'Weekly website audit', 'Priority support'], color: '#10b981', popular: true },
+              { tier: 'Enterprise', price: 997, features: ['Unlimited lead scraping', 'Full RPA automation suite', 'Custom workflow automation', 'Dedicated agent', 'White-label reports'], color: '#3b82f6', popular: false }
             ].map((p, i) => (
               <div key={i} style={{ background: p.popular ? '#1a1a1a' : '#111', padding: '2.5rem', borderRadius: '16px', border: p.popular ? '2px solid #10b981' : '1px solid #222', position: 'relative' }}>
                 {p.popular && <span style={{ position: 'absolute', top: '-12px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: '#000', padding: '4px 16px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: '600' }}>MOST POPULAR</span>}
