@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "openfounder": "^0.1.0"
+  },
+  "devDependencies": {
+    "antfarm": "file:antfarm-1.2.7.tgz"
+  }
+}

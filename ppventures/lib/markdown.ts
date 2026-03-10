@@ -13,6 +13,7 @@ export interface BlogPost {
   excerpt: string;
   content: string;
   tags?: string[];
+  category?: string;
 }
 
 export function getAllPosts(): BlogPost[] {
@@ -36,6 +37,7 @@ export function getAllPosts(): BlogPost[] {
         excerpt: data.excerpt || '',
         content,
         tags: data.tags || [],
+        category: data.category || '',
       };
     });
 
@@ -55,6 +57,7 @@ export function getPostBySlug(slug: string): BlogPost | null {
       excerpt: data.excerpt || '',
       content,
       tags: data.tags || [],
+      category: data.category || '',
     };
   } catch {
     return null;
