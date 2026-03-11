@@ -47,14 +47,23 @@ const categoryColors: Record<string, string> = {
 };
 
 export default async function BlogPostPage({ params }: Props) {
-  const { slug } = await params;
-  const post = getPostBySlug(slug);
+  let post;
+  let contentHtml = '';
+  let slug = '';
   
-  if (!post) {
+  try {
+    slug = (await params).slug;
+    post = getPostBySlug(slug);
+    
+    if (!post) {
+      notFound();
+    }
+    
+    contentHtml = await markdownToHtml(post.content);
+  } catch (error) {
+    console.error('Blog post error:', error);
     notFound();
   }
-  
-  const contentHtml = await markdownToHtml(post.content);
   
   // Get all posts for related posts
   const allPosts = getAllPosts();
@@ -134,12 +143,9 @@ export default async function BlogPostPage({ params }: Props) {
           >
             Share on LinkedIn
           </a>
-          <button 
-            onClick={() => navigator.clipboard.writeText(`https://ppventures.tech/blog/${slug}`)}
-            style={{ padding: '8px 16px', background: '#1a1a1d', borderRadius: '6px', color: '#fff', fontSize: '13px', border: 'none', cursor: 'pointer' }}
-          >
-            Copy Link
-          </button>
+          <span style={{ padding: '8px 16px', background: '#1a1a1d', borderRadius: '6px', color: '#6b7280', fontSize: '13px' }}>
+            Copy link: ppventures.tech/blog/{slug}
+          </span>
         </div>
         
         <div 

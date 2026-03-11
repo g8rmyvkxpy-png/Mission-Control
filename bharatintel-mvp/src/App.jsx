@@ -423,7 +423,7 @@ export default function BharatIntelMVP() {
   const responseRef = useRef(null);
 
   // Backend configuration
-  const API_BASE = "http://localhost:8000/v1";
+  const API_BASE = "http://72.62.231.18:8000/v1";
   const LIVE_KEY = "bi_live_pk_IN_52e15535c78dbafea0d87f9ab124281d6af160819c9ba318";
 
   useEffect(() => {

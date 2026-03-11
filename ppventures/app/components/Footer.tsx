@@ -7,12 +7,24 @@ export default function Footer() {
   const [email, setEmail] = useState('');
   const [subscribed, setSubscribed] = useState(false);
 
-  const handleNewsletter = (e: React.FormEvent) => {
+  const handleNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      setSubscribed(true);
-      setEmail('');
-      setTimeout(() => setSubscribed(false), 3000);
+    if (!email) return;
+    
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      if (res.ok) {
+        setSubscribed(true);
+        setEmail('');
+        setTimeout(() => setSubscribed(false), 3000);
+      }
+    } catch (error) {
+      console.error('Subscribe failed:', error);
     }
   };
 
@@ -42,7 +54,7 @@ export default function Footer() {
           {/* Social Links */}
           <div style={{ display: 'flex', gap: '16px' }}>
             <a 
-              href="https://linkedin.com" 
+              href="https://linkedin.com/company/ppventures" 
               target="_blank" 
               rel="noopener noreferrer"
               style={{ color: '#6b7280', fontSize: '20px', transition: 'color 0.2s' }}
@@ -52,7 +64,7 @@ export default function Footer() {
               LinkedIn
             </a>
             <a 
-              href="https://x.com" 
+              href="https://x.com/ppventures" 
               target="_blank" 
               rel="noopener noreferrer"
               style={{ color: '#6b7280', fontSize: '20px', transition: 'color 0.2s' }}
@@ -62,7 +74,7 @@ export default function Footer() {
               X
             </a>
             <a 
-              href="https://github.com" 
+              href="https://github.com/ppventures" 
               target="_blank" 
               rel="noopener noreferrer"
               style={{ color: '#6b7280', fontSize: '20px', transition: 'color 0.2s' }}

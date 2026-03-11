@@ -35,7 +35,7 @@ const services = [
       '✓ MVP Development — build working AI prototype fast',
       '✓ Go-to-Market Planning — launch AI-powered products',
     ],
-    price: '₹2,49,000',
+    price: '$2,990 (₹2,49,000)',
   },
   {
     icon: '🎯',
@@ -53,7 +53,7 @@ const services = [
       '✓ Client management — manage leads and pipeline',
       '✓ Daily performance reports',
     ],
-    price: '₹16,500/mo',
+    price: '$197/mo (₹16,500)',
     popular: true,
   },
   {
@@ -70,7 +70,7 @@ const services = [
       '✓ Client dashboard to track everything',
       '✓ RAG-powered Q&A from your documents',
     ],
-    price: '₹24,750/mo',
+    price: '$297/mo (₹24,750)',
     badge: 'MOST POPULAR',
   },
 ];

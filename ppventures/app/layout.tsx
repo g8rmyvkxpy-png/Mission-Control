@@ -1,5 +1,6 @@
 import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
+import CookieConsent from './components/CookieConsent';
 
 export const metadata = {
   title: 'PPVentures - AI Agents That Run Your Business 24/7',
@@ -33,6 +34,10 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <head>
+          {/* Performance: Preconnect to external domains */}
+          <link rel="preconnect" href="https://allowed-earwig-80.clerk.accounts.dev" />
+          <link rel="preconnect" href="https://www.googletagmanager.com" />
+          
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{
@@ -60,7 +65,10 @@ export default function RootLayout({
             `
           }} />
         </head>
-        <body>{children}</body>
+        <body>
+          {children}
+          <CookieConsent />
+        </body>
       </html>
     </ClerkProvider>
   );
