@@ -84,47 +84,38 @@ export async function seedSampleLeads(userId, targetNiche = 'your target niche')
   const sampleLeads = [
     {
       user_id: userId,
-      name: 'Sample Lead 1',
-      email: 'contact@example.com',
-      company: 'Example Corp',
-      company_url: 'https://example.com',
+      name: 'Sarah Johnson',
+      email: 'sarah@techstartup.io',
+      company: 'TechStartup IO',
       lead_score: 8,
-      score_reasoning: 'Sample lead — replace with real leads when Neo runs.',
-      source_url: 'https://example.com',
-      outreach_draft: `Hi there,\n\nI came across Example Corp and was impressed by your work. I help businesses like yours with growth.\n\nWould you be open to a quick 15-minute chat this week?\n\nBest regards`,
+      source: 'sample',
       status: 'new',
-      scraped_by: 'system'
+      notes: `Sample lead in ${targetNiche} - Neo will find real leads soon.`
     },
     {
       user_id: userId,
-      name: 'Sample Lead 2',
-      email: 'hello@startup.io',
-      company: 'Startup IO',
-      company_url: 'https://startup.io',
+      name: 'Mike Chen',
+      email: 'mike@growthagency.co',
+      company: 'Growth Agency Co',
       lead_score: 7,
-      score_reasoning: 'Sample lead — replace with real leads when Neo runs.',
-      source_url: 'https://startup.io',
-      outreach_draft: `Hi there,\n\nI came across Startup IO and was impressed by your growth. I help businesses like yours scale faster.\n\nWould you be open to a quick chat?\n\nBest regards`,
+      source: 'sample',
       status: 'new',
-      scraped_by: 'system'
+      notes: `Sample lead in ${targetNiche} - Neo will find real leads soon.`
     },
     {
       user_id: userId,
-      name: 'Sample Lead 3',
-      email: 'team@agency.co',
-      company: 'Digital Agency Co',
-      company_url: 'https://agency.co',
+      name: 'Lisa Wang',
+      email: 'lisa@enterprise.com',
+      company: 'Enterprise Solutions',
       lead_score: 9,
-      score_reasoning: 'Sample lead — replace with real leads when Neo runs.',
-      source_url: 'https://agency.co',
-      outreach_draft: `Hi there,\n\nI help agencies like Digital Agency Co win more clients. Would love to chat about how we could help.\n\nBest regards`,
+      source: 'sample',
       status: 'new',
-      scraped_by: 'system'
+      notes: `Sample lead in ${targetNiche} - Neo will find real leads soon.`
     }
   ]
 
   const { error } = await supabase.from('leads').insert(sampleLeads)
-  if (error) throw error
+  if (error) console.error('Seed error:', error.message)
 }
 
 // ============ COMPETITORS ============

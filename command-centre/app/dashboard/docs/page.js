@@ -85,12 +85,24 @@ export default function DocsPage() {
   }
 
   function renderMarkdown(content) {
+    if (!content) return '';
     return content
+      // Tables - convert |---| to styled table rows
+      .replace(/\|(.+)\|/g, (match) => {
+        const cells = match.split('|').filter(c => c.trim());
+        if (cells.every(c => c.trim().match(/^-+$/))) {
+          return ''; // Skip separator rows
+        }
+        const row = cells.map(c => `<td style="padding: 4px 8px; border: 1px solid #30363d;">${c.trim()}</td>`).join('');
+        return `<tr>${row}</tr>`;
+      })
+      .replace(/(<tr>.*?<\/tr>)+/g, '<table style="border-collapse: collapse; margin: 8px 0;">$&</table>')
       .replace(/^### (.*$)/gim, '<h3>$1</h3>')
       .replace(/^## (.*$)/gim, '<h2>$1</h2>')
       .replace(/^# (.*$)/gim, '<h1>$1</h1>')
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/`([^`]+)`/g, '<code style="background: #21262d; padding: 2px 4px; border-radius: 4px;">$1</code>')
       .replace(/\n/g, '<br>');
   }
 

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 export default function GoalsPage() {
   const [goals, setGoals] = useState([]);
   const [generatedTasks, setGeneratedTasks] = useState([]);
+  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [brainDump, setBrainDump] = useState('');
   const [processing, setProcessing] = useState(false);
@@ -29,10 +30,44 @@ export default function GoalsPage() {
     longterm: 'Long-term'
   };
 
+  // Calculate goal progress based on tasks
+  function getGoalProgress(goal) {
+    // Look for tasks related to this goal (match by title keywords)
+    const goalKeywords = goal.title.toLowerCase().split(' ');
+    const relatedTasks = tasks.filter(task => {
+      const taskTitle = task.title.toLowerCase();
+      return goalKeywords.some(keyword => keyword.length > 3 && taskTitle.includes(keyword));
+    });
+    const doneTasks = relatedTasks.filter(t => t.status === 'done').length;
+    const totalTasks = relatedTasks.length;
+    
+    // If no related tasks found, check generic task completion
+    if (totalTasks === 0) {
+      return { done: 0, total: 0, percent: null };
+    }
+    
+    return {
+      done: doneTasks,
+      total: totalTasks,
+      percent: Math.round((doneTasks / totalTasks) * 100)
+    };
+  }
+
   useEffect(() => {
     fetchGoals();
     fetchGeneratedTasks();
+    fetchTasks();
   }, []);
+
+  async function fetchTasks() {
+    try {
+      const res = await fetch('/api/tasks');
+      const data = await res.json();
+      setTasks(data.tasks || []);
+    } catch (err) {
+      console.error('Failed to fetch tasks:', err);
+    }
+  }
 
   async function fetchGoals() {
     try {
@@ -232,6 +267,36 @@ export default function GoalsPage() {
                     {goal.description}
                   </p>
                 )}
+                
+                {/* Progress Bar */}
+                {(() => {
+                  const progress = getGoalProgress(goal);
+                  if (progress.percent === null) return null;
+                  return (
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 4 }}>
+                        <span style={{ color: 'var(--text-muted)' }}>Progress</span>
+                        <span style={{ color: progress.percent === 100 ? '#10b981' : '#888' }}>
+                          {progress.done}/{progress.total} tasks ({progress.percent}%)
+                        </span>
+                      </div>
+                      <div style={{ 
+                        height: 6, 
+                        background: 'var(--bg-secondary)', 
+                        borderRadius: 3,
+                        overflow: 'hidden'
+                      }}>
+                        <div style={{ 
+                          height: '100%', 
+                          width: `${progress.percent}%`,
+                          background: progress.percent === 100 ? '#10b981' : '#3b82f6',
+                          borderRadius: 3,
+                          transition: 'width 0.3s'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })()}
                 
                 {/* Meta */}
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>

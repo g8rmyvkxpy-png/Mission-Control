@@ -3,15 +3,18 @@
 import { useState } from 'react';
 
 const columns = [
-  { id: 'backlog', label: 'Backlog' },
+  { id: 'backlog', label: 'To Do' },
   { id: 'in-progress', label: 'In Progress' },
-  { id: 'review', label: 'In Review' },
   { id: 'done', label: 'Done' },
 ];
 
 export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }) {
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [showAllDone, setShowAllDone] = useState(false);
+  const [doneCollapsed, setDoneCollapsed] = useState(false);
+
+  const DONE_DISPLAY_LIMIT = 10;
 
   function getTasksByStatus(status) {
     return tasks.filter((t) => t.status === status);
@@ -52,10 +55,27 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
               <div className="kanban-header">
                 <span className="kanban-title">{column.label}</span>
                 <span className="kanban-count">{columnTasks.length}</span>
+                {column.id === 'done' && columnTasks.length > DONE_DISPLAY_LIMIT && (
+                  <button
+                    onClick={() => setDoneCollapsed(!doneCollapsed)}
+                    style={{
+                      marginLeft: 8,
+                      background: 'none',
+                      border: 'none',
+                      color: '#10b981',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                    }}
+                  >
+                    {doneCollapsed ? '▼ Expand' : '▲ Collapse'}
+                  </button>
+                )}
               </div>
 
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-                {columnTasks.map((task) => (
+                {columnTasks
+                  .slice(0, column.id === 'done' && !showAllDone && !doneCollapsed ? DONE_DISPLAY_LIMIT : undefined)
+                  .map((task) => (
                   <div
                     key={task.id}
                     className="kanban-task"
@@ -105,19 +125,6 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
                         {task.description}
                       </div>
                     )}
-
-                    {column.id === 'review' && (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        style={{ marginTop: 8, width: '100%' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onApprove(task.id);
-                        }}
-                      >
-                        ✓ Approve
-                      </button>
-                    )}
                   </div>
                 ))}
 
@@ -132,6 +139,46 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
                   >
                     No tasks
                   </div>
+                )}
+
+                {/* Show more button for DONE column */}
+                {column.id === 'done' && columnTasks.length > DONE_DISPLAY_LIMIT && !doneCollapsed && !showAllDone && (
+                  <button
+                    onClick={() => setShowAllDone(true)}
+                    style={{
+                      width: '100%',
+                      padding: 8,
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      border: '1px dashed #10b981',
+                      borderRadius: 6,
+                      color: '#10b981',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      marginTop: 8,
+                    }}
+                  >
+                    Show {columnTasks.length - DONE_DISPLAY_LIMIT} more...
+                  </button>
+                )}
+
+                {/* Show less button */}
+                {column.id === 'done' && showAllDone && (
+                  <button
+                    onClick={() => setShowAllDone(false)}
+                    style={{
+                      width: '100%',
+                      padding: 8,
+                      background: 'none',
+                      border: '1px solid #30363d',
+                      borderRadius: 6,
+                      color: '#8b949e',
+                      cursor: 'pointer',
+                      fontSize: 11,
+                      marginTop: 8,
+                    }}
+                  >
+                    Show less
+                  </button>
                 )}
               </div>
             </div>
@@ -205,6 +252,49 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
                   </div>
                 )}
               </div>
+
+              {/* Stale task warning */}
+              {selectedTask.status === 'in-progress' && selectedTask.updated_at && (() => {
+                const staleMs = 60 * 60 * 1000;
+                const lastUpdate = new Date(selectedTask.updated_at).getTime();
+                const isStale = Date.now() - lastUpdate > staleMs;
+                const hoursStale = Math.round((Date.now() - lastUpdate) / (1000 * 60 * 60));
+                
+                return isStale ? (
+                  <div style={{ 
+                    marginTop: 12, 
+                    padding: 10, 
+                    background: 'rgba(239, 68, 68, 0.15)', 
+                    border: '1px solid #ef4444',
+                    borderRadius: 6,
+                    color: '#ef4444',
+                    fontSize: 12
+                  }}>
+                    ⚠️ Task stale ({hoursStale}h). 
+                    <button 
+                      onClick={async () => {
+                        await fetch(`/api/tasks?id=${selectedTask.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: 'backlog' })
+                        });
+                        setSelectedTask(null);
+                        if (typeof window !== 'undefined') window.location.reload();
+                      }}
+                      style={{ 
+                        marginLeft: 8, 
+                        background: 'none', 
+                        border: 'none', 
+                        color: '#ef4444', 
+                        textDecoration: 'underline',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Reassign
+                    </button>
+                  </div>
+                ) : null;
+              })()}
 
               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 12 }}>
                 Created: {new Date(selectedTask.created_at).toLocaleString()}

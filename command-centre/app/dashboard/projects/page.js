@@ -128,6 +128,21 @@ export default function ProjectsPage() {
                   {project.task_count || 0} tasks
                 </span>
               </div>
+              
+              {/* Warning if progress but no tasks */}
+              {(project.progress > 0 && (!project.task_count || project.task_count === 0)) && (
+                <div style={{ 
+                  marginTop: 8, 
+                  padding: '6px 8px', 
+                  background: 'rgba(239, 68, 68, 0.15)', 
+                  border: '1px solid #ef4444',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  color: '#ef4444'
+                }}>
+                  ⚠️ Progress set but no linked tasks
+                </div>
+              )}
             </div>
           ))}
         </div>

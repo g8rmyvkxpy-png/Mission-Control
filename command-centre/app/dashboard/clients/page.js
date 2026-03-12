@@ -130,7 +130,42 @@ export default function ClientsPage() {
         </table>
         {clients.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center', color: '#666' }}>
-            No clients yet. Sign up via the landing page!
+            <div style={{ fontSize: 40, marginBottom: 16 }}>👥</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#fff', marginBottom: 8 }}>No clients yet</div>
+            <div style={{ marginBottom: 24 }}>Follow this checklist to get your first client:</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 400, margin: '0 auto', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-card)', borderRadius: 8 }}>
+                <span style={{ color: '#10b981' }}>☐</span>
+                <span>1. Set up your service packages on <strong>Services</strong> page</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-card)', borderRadius: 8 }}>
+                <span style={{ color: '#10b981' }}>☐</span>
+                <span>2. Create a landing page at <strong>ppventures.tech</strong></span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-card)', borderRadius: 8 }}>
+                <span style={{ color: '#10b981' }}>☐</span>
+                <span>3. Connect a lead capture form</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 12, background: 'var(--bg-card)', borderRadius: 8 }}>
+                <span style={{ color: '#10b981' }}>☐</span>
+                <span>4. Add your first client manually below</span>
+              </div>
+            </div>
+            <button 
+              onClick={() => {
+                const name = prompt('Client name:');
+                if (name) {
+                  fetch('http://72.62.231.18:3004/api/clients', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email: '', company: '', mrr: 0, status: 'lead' })
+                  }).then(() => fetchClients());
+                }
+              }}
+              style={{ marginTop: 24, padding: '12px 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+            >
+              + Add First Client
+            </button>
           </div>
         )}
       </div>

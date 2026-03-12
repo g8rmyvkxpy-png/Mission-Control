@@ -42,10 +42,12 @@ export default function OverviewPage() {
       const docsList = docsData.docs || [];
       const projectsList = projectsData.projects || [];
 
-      const today = new Date().toDateString();
-      const tasksToday = tasksList.filter(t => new Date(t.created_at).toDateString() === today).length;
-      const memoriesToday = memoriesList.filter(m => new Date(m.created_at).toDateString() === today).length;
-      const docsToday = docsList.filter(d => new Date(d.created_at).toDateString() === today).length;
+      // Get today's date in UTC to match server-side timestamps
+      const now = new Date();
+      const utcDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toDateString();
+      const tasksToday = tasksList.filter(t => new Date(t.created_at).toDateString() === utcDate).length;
+      const memoriesToday = memoriesList.filter(m => new Date(m.created_at).toDateString() === utcDate).length;
+      const docsToday = docsList.filter(d => new Date(d.created_at).toDateString() === utcDate).length;
       const projectsActive = projectsList.filter(p => p.status === 'active').length;
 
       const online = agentsList.filter(a => a.status === 'online').length;
@@ -130,6 +132,31 @@ export default function OverviewPage() {
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#888' }}>
           <div>📅 Day 1 of journey</div>
           <div>🎯 0% to goal</div>
+        </div>
+        
+        {/* Next Milestone CTA */}
+        <div style={{ marginTop: 16, padding: 16, background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 11, color: '#10b981', fontWeight: 600, marginBottom: 4 }}>🎯 NEXT MILESTONE: $10K ARR</div>
+              <div style={{ fontSize: 12, color: '#888' }}>Close 3 clients at $297/month → <span style={{ color: '#10b981' }}>$8,910/mo</span></div>
+            </div>
+            <button 
+              onClick={() => router.push('/dashboard/clients')}
+              style={{ 
+                padding: '8px 16px', 
+                background: '#10b981', 
+                border: 'none', 
+                borderRadius: 6, 
+                color: '#fff', 
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: 500
+              }}
+            >
+              View Clients →
+            </button>
+          </div>
         </div>
         
         {/* Latest CEO Report Preview */}

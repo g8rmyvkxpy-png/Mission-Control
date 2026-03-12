@@ -8,6 +8,7 @@ export default function MemoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [agentFilter, setAgentFilter] = useState('');
 
   useEffect(() => {
     fetchMemories();
@@ -30,16 +31,19 @@ export default function MemoryPage() {
     setAgents(data.agents || []);
   }
 
-  // Group memories by date
+  // Group memories by date (with agent filter)
   const groupedMemories = useMemo(() => {
+    const filtered = agentFilter 
+      ? memories.filter(m => m.agent_id === agentFilter)
+      : memories;
     const groups = {};
-    memories.forEach(m => {
+    filtered.forEach(m => {
       const date = m.memory_date || m.created_at?.split('T')[0];
       if (!groups[date]) groups[date] = [];
       groups[date].push(m);
     });
     return groups;
-  }, [memories]);
+  }, [memories, agentFilter]);
 
   // Get longterm memories
   const longtermMemories = useMemo(() => {
@@ -89,7 +93,7 @@ export default function MemoryPage() {
       </div>
 
       {/* Search */}
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 16 }}>
         <input
           type="text"
           className="form-input"
@@ -100,6 +104,45 @@ export default function MemoryPage() {
             fetchMemories();
           }}
         />
+      </div>
+      
+      {/* Agent Filter */}
+      <div style={{ marginBottom: 24, display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => setAgentFilter('')}
+          style={{
+            padding: '6px 12px',
+            borderRadius: 16,
+            border: 'none',
+            fontSize: 12,
+            background: agentFilter === '' ? '#3b82f6' : 'var(--bg-secondary)',
+            color: agentFilter === '' ? '#fff' : 'var(--text-secondary)',
+            cursor: 'pointer'
+          }}
+        >
+          All
+        </button>
+        {agents.map(agent => (
+          <button
+            key={agent.id}
+            onClick={() => setAgentFilter(agent.id)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 16,
+              border: 'none',
+              fontSize: 12,
+              background: agentFilter === agent.id ? (agent.avatar_color || '#3b82f6') : 'var(--bg-secondary)',
+              color: agentFilter === agent.id ? '#fff' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: agent.avatar_color || '#3b82f6' }} />
+            {agent.name}
+          </button>
+        ))}
       </div>
 
       {/* Two Columns */}

@@ -251,7 +251,7 @@ export default function WebsitePage() {
                     <a href={`https://ppventures.tech/${page === 'homepage' ? '' : page === 'automation_landing' ? 'automation' : page}`} target="_blank" style={{ color: '#10b981', fontSize: '12px', textDecoration: 'none' }}>View →</a>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                    <span style={{ color, fontSize: '24px', fontWeight: 'bold' }}>{h.hasBeenScanned ? `${h.score}/10` : '—'}</span>
+                    <span style={{ color, fontSize: '24px', fontWeight: 'bold' }}>{h.hasBeenScanned ? (h.score === 10 ? 'Baseline' : `${h.score}/10`) : 'Not Scanned'}</span>
                     <div style={{ flex: 1, height: '4px', background: 'var(--bg-tertiary)', borderRadius: '2px' }}>
                       <div style={{ width: `${progress}%`, height: '100%', background: h.score === null ? 'var(--text-muted)' : h.score >= 7 ? '#10b981' : h.score >= 4 ? '#f59e0b' : '#ef4444', borderRadius: '2px' }} />
                     </div>

@@ -18,9 +18,19 @@ export default function DashboardLayout({ children }) {
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [lastSynced, setLastSynced] = useState(new Date());
+  const [theme, setTheme] = useState('dark');
   const searchInputRef = useRef(null);
   const pullRef = useRef(null);
   const [pulling, setPulling] = useState(false);
+
+  // Theme toggle
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  function toggleTheme() {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  }
 
   // Update last synced time periodically
   useEffect(() => {
@@ -189,6 +199,22 @@ export default function DashboardLayout({ children }) {
             <div style={{ fontSize: 10, color: '#666', marginRight: 8 }}>
               Synced {lastSynced.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
+            <button 
+              onClick={toggleTheme}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 16,
+                padding: '4px 8px',
+                marginRight: 8,
+                borderRadius: 4,
+                background: 'var(--bg-secondary)'
+              }}
+              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <div className="search-hint" onClick={() => { setShowSearch(true); setTimeout(() => searchInputRef.current?.focus(), 100); }}>
               <span>🔍</span>
               <span className="search-text">Search...</span>

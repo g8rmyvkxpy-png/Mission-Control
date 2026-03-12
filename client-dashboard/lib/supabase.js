@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://hizmosyxhwgighzxvbrj.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhpem1vc3l4aHdnaWdoenh2YnJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxODUwNzEsImV4cCI6MjA4Nzc2MTA3MX0.nPlxv-9SIMTIdHq-FFqC1j_9l0ba2KDSax_l7NKpmt8'
+const supabaseUrl = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://iglfjgsqqknionzmmprj.supabase.co')
+  : 'https://iglfjgsqqknionzmmprj.supabase.co'
+
+const supabaseAnonKey = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGZqZ3NxcWtuaW9uem1tcHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjI1NjIsImV4cCI6MjA4ODE5ODU2Mn0.y6rfeWhG-ExBCiQarPXgvLqaDv6NBaA4MB9FbSbB_3w')
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnbGZqZ3NxcWtuaW9uem1tcHJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjI1NjIsImV4cCI6MjA4ODE5ODU2Mn0.y6rfeWhG-ExBCiQarPXgvLqaDv6NBaA4MB9FbSbB_3w'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// Check if Supabase is properly configured
-export function isSupabaseConfigured(): boolean {
+export function isSupabaseConfigured() {
   return supabaseUrl !== '' && supabaseAnonKey !== ''
 }

@@ -30,11 +30,11 @@ export default function TeamPage() {
     setMission(missionData.mission);
     setAgents(agentsData.agents || []);
     
-    // Fetch stats for each agent
+    // Fetch stats for each agent - use /api/tasks with agent_id filter
     const stats = {};
     for (const agent of agentsData.agents || []) {
       try {
-        const tasksRes = await fetch(`/api/agents/${agent.id}/tasks`);
+        const tasksRes = await fetch(`/api/tasks?agent_id=${agent.id}`);
         const tasksData = await tasksRes.json();
         stats[agent.id] = {
           tasks: tasksData.tasks?.length || 0,

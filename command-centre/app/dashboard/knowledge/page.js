@@ -120,7 +120,56 @@ export default function KnowledgeBasePage() {
         <div>
           <h3>📚 Documents ({documents.length})</h3>
           {documents.length === 0 ? (
-            <p style={{ color: '#666' }}>No documents yet.</p>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '3rem', 
+              background: 'var(--bg-card)', 
+              borderRadius: 12,
+              border: '1px dashed #30363d'
+            }}>
+              <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
+              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>
+                No documents yet
+              </div>
+              <div style={{ fontSize: 14, marginBottom: 24, color: '#888' }}>
+                Upload your first document to enable AI-powered Q&A
+              </div>
+              
+              {/* Onboarding guide */}
+              <div style={{ 
+                maxWidth: 400, 
+                margin: '0 auto', 
+                textAlign: 'left',
+                background: 'var(--bg)',
+                borderRadius: 8,
+                padding: 20
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#888', marginBottom: 12, textTransform: 'uppercase' }}>
+                  What to upload
+                </div>
+                {[
+                  { icon: '📋', text: 'SOPs and playbooks' },
+                  { icon: '📊', text: 'Reports and analytics' },
+                  { icon: '📧', text: 'Client briefs and briefs' },
+                  { icon: '❓', text: 'FAQ and knowledge base articles' }
+                ].map((item, i) => (
+                  <div key={i} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 12, 
+                    padding: '8px 0',
+                    borderBottom: i < 3 ? '1px solid #30363d' : 'none'
+                  }}>
+                    <span style={{ fontSize: 16 }}>{item.icon}</span>
+                    <span style={{ fontSize: 13, color: '#888' }}>{item.text}</span>
+                  </div>
+                ))}
+              </div>
+              
+              <p style={{ fontSize: 12, color: '#666', marginTop: 16 }}>
+                Documents are auto-processed when clients upload them via the dashboard
+              </p>
+            </div>
           ) : (
             <div style={{ display: 'grid', gap: '1rem' }}>
               {documents.map(doc => (
