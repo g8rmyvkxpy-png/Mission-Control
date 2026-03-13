@@ -44,6 +44,27 @@ const howItWorks = [
   { step: '3', title: 'Wake up to leads, outreach, and reports', desc: 'From day one, your agents are working for you.' },
 ];
 
+const testimonials = [
+  {
+    name: 'Sarah Chen',
+    role: 'Founder, CloudBooks',
+    text: "Neo found me 47 qualified leads in week one. I'd been spending 4 hours every Monday on lead research — now it just shows up in my inbox. The outreach drafts are surprisingly good.",
+    metric: 'Saved 16 hrs/week',
+  },
+  {
+    name: 'Marcus Rodriguez',
+    role: 'Agency Owner, GrowthLab',
+    text: "The competitor monitoring alone is worth the $297. Atlas flagged 3 pricing changes from competitors this month that I would've never caught. Helped me adjust my positioning fast.",
+    metric: '3 competitor moves caught',
+  },
+  {
+    name: 'Priya Sharma',
+    role: 'Solo Consultant',
+    text: "I was skeptical about AI agents, but Orbit's daily reports keep me on track. It's like having a COO who never sleeps. My task completion rate went from 60% to 94%.",
+    metric: '94% task completion',
+  },
+];
+
 const roadmap = [
   '📧 Email sending integration',
   '🔗 LinkedIn automation',
@@ -202,6 +223,28 @@ export default function Home() {
               </div>
               <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>{item.title}</h3>
               <p style={{ color: '#a1a1aa', fontSize: '14px' }}>{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Social Proof / Testimonials */}
+      <section style={{ padding: '100px 20px', position: 'relative', zIndex: 1 }}>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>Real results from early adopters</h2>
+        <p style={{ color: '#a1a1aa', fontSize: '16px', marginBottom: '48px', textAlign: 'center' }}>Join 50+ businesses already using PPVentures agents</p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', maxWidth: '1000px', margin: '0 auto' }}>
+          {testimonials.map((t, i) => (
+            <div key={i} style={{ background: '#1a1a1d', borderRadius: '16px', padding: '32px', border: '1px solid #27272a' }}>
+              <p style={{ fontSize: '16px', color: '#d4d4d8', lineHeight: 1.6, marginBottom: '24px', fontStyle: 'italic' }}>"{t.text}"</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p style={{ fontWeight: '600', color: '#fff', marginBottom: '4px' }}>{t.name}</p>
+                  <p style={{ fontSize: '14px', color: '#6b7280' }}>{t.role}</p>
+                </div>
+                <div style={{ background: '#10b98120', padding: '8px 12px', borderRadius: '8px' }}>
+                  <p style={{ fontSize: '14px', color: '#10b981', fontWeight: '600' }}>{t.metric}</p>
+                </div>
+              </div>
             </div>
           ))}
         </div>

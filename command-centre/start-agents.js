@@ -4,6 +4,96 @@ require('dotenv').config({ path: './.env.local' });
 
 const cron = require('node-cron');
 const { readFile, writeFile, replaceInFile, createBlogPost, restartWebsite, getWebsiteContext } = require('./lib/agentActions');
+const { readProjectFile, writeProjectFile, listProjectFiles, runCommand, getProjectStructure } = require('./lib/agent-tools/codeExecutor.js');
+const { createClient } = require('@supabase/supabase-js');
+
+// ========== SUPABASE REALTIME SETUP ==========
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+let supabase = null;
+
+if (supabaseUrl && supabaseKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('📡 Supabase realtime enabled');
+  } catch (e) {
+    console.log('📡 Supabase realtime disabled:', e.message);
+  }
+}
+
+// ========== AGENT ID CONSTANTS ==========
+const NEO_ID = '0fd5605b-42d7-4095-8219-b5515678aecb';
+const ATLAS_ID = 'c13d73a1-9bb2-4256-8e7b-95324a9d0f8d';
+const ORBIT_ID = '6b7f3467-52da-4361-a8fb-b78eb0a64c33';
+
+// ========== PROJECT FILE MAP (cached) ==========
+let projectFileMap = null;
+let projectFileMapTime = 0;
+const PROJECT_FILE_MAP_TTL = 10 * 60 * 1000; // 10 minutes
+
+function getProjectFileMap() {
+  const now = Date.now();
+  if (projectFileMap && (now - projectFileMapTime) < PROJECT_FILE_MAP_TTL) {
+    return projectFileMap;
+  }
+  
+  // Build new file map
+  try {
+    const files = listProjectFiles('.');
+    projectFileMap = files.slice(0, 200).join(', ');
+    projectFileMapTime = now;
+    console.log(`[FileMap] Cached ${files.length} project files`);
+  } catch (e) {
+    projectFileMap = 'Error loading project files';
+  }
+  return projectFileMap;
+}
+
+// ========== REALTIME TASK SUBSCRIPTION ==========
+const realtimeTasks = new Map(); // agentId -> channel
+
+function subscribeToNewTasks(agentId, agentName, callback) {
+  if (!supabase) {
+    console.log(`[${agentName}] Realtime disabled - using polling`);
+    return () => {};
+  }
+  
+  // Unsubscribe if already subscribed
+  if (realtimeTasks.has(agentId)) {
+    realtimeTasks.get(agentId).unsubscribe();
+  }
+  
+  const channel = supabase
+    .channel(`tasks-${agentId}`)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'tasks',
+      filter: 'status=eq.backlog'
+    }, (payload) => {
+      console.log(`[${agentName}] 📡 New task detected: ${payload.new.title}`);
+      callback(payload.new);
+    })
+    .subscribe();
+  
+  realtimeTasks.set(agentId, channel);
+  console.log(`[${agentName}] 📡 Subscribed to new tasks`);
+  return channel;
+}
+
+// ========== HELPER FUNCTIONS ==========
+
+async function logToCommandCentre(agentId, message, type = 'info') {
+  try {
+    await fetch(`${API_BASE}/api/logs`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent_id: agentId, message, log_type: type })
+    });
+  } catch (err) {
+    console.log(`[logToCommandCentre] Error: ${err.message}`);
+  }
+}
 
 // ========== STANDALONE TAVILY SEARCH ==========
 // This runs in Node.js - NOT inside Minimax prompt
@@ -181,6 +271,30 @@ const activeAgents = new Map();
 
 // ========== HELPER FUNCTIONS ==========
 
+// Cache for agent IDs
+const agentIdCache = new Map();
+
+async function getAgentIdByName(agentName) {
+  // Check cache first
+  if (agentIdCache.has(agentName)) {
+    return agentIdCache.get(agentName);
+  }
+  
+  // Fetch from API
+  try {
+    const res = await fetch(`${API_BASE}/api/agents`);
+    const data = await res.json();
+    const agent = data.agents?.find(a => a.name.toLowerCase() === agentName.toLowerCase());
+    if (agent) {
+      agentIdCache.set(agentName, agent.id);
+      return agent.id;
+    }
+  } catch (err) {
+    console.log(`[getAgentIdByName] Error: ${err.message}`);
+  }
+  return null;
+}
+
 async function createAgentClient(apiKey) {
   return {
     async heartbeat(currentTask = 'idle') {
@@ -210,8 +324,22 @@ async function createAgentClient(apiKey) {
       }
     },
 
-    async getBacklogTasks(agentId) {
-      const res = await fetch(`${API_BASE}/api/tasks?agent_id=${agentId}&status=backlog`);
+    async getBacklogTasks(agentId, agentName = null) {
+      // Route tasks by agent role
+      let taskTypeFilter = '';
+      
+      if (agentName === 'Orbit') {
+        // Orbit handles: code_fix, deployment, website_update
+        taskTypeFilter = '&task_type=code_fix,task_type=deployment,task_type=website_update';
+      } else if (agentName === 'Atlas') {
+        // Atlas handles: research, analysis, seo
+        taskTypeFilter = '&task_type=research,task_type=analysis,task_type=seo';
+      } else if (agentName === 'Neo') {
+        // Neo handles: strategy, planning, general (and untyped for triage)
+        taskTypeFilter = '&task_type=strategy,task_type=planning,task_type=general';
+      }
+      
+      const res = await fetch(`${API_BASE}/api/tasks?agent_id=${agentId}&status=backlog${taskTypeFilter}`);
       const data = await res.json();
       return data.tasks || [];
     },
@@ -889,9 +1017,15 @@ Only suggest subtasks if is_complex is true. Maximum 2 subtasks.`;
 
   // ========== ACTION-BASED EXECUTION ==========
   // For website/blog tasks, agents should take REAL actions, not just write reports
-  const isWebsiteTask = /ppventures|website|homepage|blog|copy|headline|cta|page|content|services|about/i.test(taskDesc);
+  let isWebsiteTask = /ppventures|website|homepage|blog|copy|headline|cta|page|content|services|about/i.test(taskDesc);
   const isBlogPost = /blog|post|article|write/i.test(taskDesc);
   const isResearchTask = /research|analysis|audit|review/i.test(taskDesc) && !isWebsiteTask;
+  
+  // Check task_type from database (new system)
+  const isCodeFixTask = task.task_type === 'code_fix';
+    console.log(`[DEBUG] task_type=${task.task_type}, isCodeFixTask=${isCodeFixTask}`);
+  const isContentTask = task.task_type === 'content';
+  const isResearchTypeTask = task.task_type === 'research';
 
   let actionTaken = '';
 
@@ -904,6 +1038,262 @@ Only suggest subtasks if is_complex is true. Maximum 2 subtasks.`;
   }
 
   try {
+    // ========== CODE FIX TASK HANDLING ==========
+    // For code_fix tasks, use the code executor to modify Command Centre files
+    if (isCodeFixTask) {
+      console.log(`[${agent.name}] 🔧 CODE FIX task detected - using code executor`);
+      
+      try {
+        // Get project structure
+        const projectStructure = getProjectStructure();
+        console.log(`[${agent.name}] Project structure loaded`);
+        
+        // Read a few key files to include in the prompt
+        const keyFiles = [
+          'app/api/tasks/route.js',
+          'app/api/docs/route.js',
+          'app/components/Navbar.js',
+          'app/components/TaskBoard.js'
+        ];
+        
+        let fileContents = '';
+        for (const f of keyFiles) {
+          try {
+            const content = readProjectFile(f);
+            if (content && content.length > 0) {
+              fileContents += `\n\n===FILE: ${f}===\n${content.slice(0, 2000)}`;
+            }
+          } catch(e) {
+            // File doesn't exist, skip
+          }
+        }
+        
+        // Get failure lessons from memory
+        let failureLessons = '';
+        try {
+          const memRes = await fetch(`${API_BASE}/api/memories?type=failure_lesson&limit=5`);
+          const memData = await memRes.json();
+          if (memData.memories && memData.memories.length > 0) {
+            failureLessons = `\n\n⚠️ RECENT FAILURE LESSONS (avoid these mistakes):\n${memData.memories.map(m => `- ${m.content}`).join('\n')}`;
+          }
+        } catch(e) {}
+        
+        // Build code fix prompt with SURGICAL DIFF approach
+        const codeFixPrompt = `
+TASK: ${task.title}
+DESCRIPTION: ${task.description}${failureLessons}
+
+EXISTING PROJECT FILES:
+${getProjectFileMap()}
+
+${fileContents}
+
+IMPORTANT: You must output changes using SEARCH/REPLACE blocks.
+
+RULES:
+1. Each change is a SEARCH/REPLACE block
+2. SEARCH must EXACTLY match existing code (copy-paste, including whitespace)
+3. Keep each block under 30 lines
+4. You can output multiple blocks per file
+5. NEVER output entire files — only the parts that change
+
+FORMAT:
+===FILE: app/api/tasks/route.js===
+<<<SEARCH
+const { searchParams } = new URL(request.url);
+>>>REPLACE
+const { searchParams } = new URL(request.url);
+console.log('GET /api/tasks called');
+<<<END
+        `.trim();
+
+        const rawResponse = await executeWithMinimax(codeFixPrompt, client, agent);
+        const response = sanitiseAgentOutput(rawResponse);
+        
+        console.log(`[${agent.name}] AI response preview: ${response.substring(0, 300)}`);
+        console.log(`[${agent.name}] Response contains ===FILE:? ${response.includes('===FILE:')}`);
+        
+        // Parse surgical diffs
+        if (response.includes('===FILE:') && response.includes('<<<SEARCH')) {
+          try {
+            // Parse diff blocks
+            const fileBlocks = response.split(/===FILE:\s*/);
+            let changesApplied = 0;
+            
+            for (const block of fileBlocks) {
+              if (!block.trim()) continue;
+              
+              const filePathMatch = block.match(/^(.+?)===/);
+              if (!filePathMatch) continue;
+              const targetFile = filePathMatch[1].trim();
+              
+              console.log(`[${agent.name}] Processing file: ${targetFile}`);
+              
+              // Read current content - handle new file creation
+              let currentContent = '';
+              try {
+                currentContent = readProjectFile(targetFile);
+              } catch (readErr) {
+                if (readErr.message.includes('File not found')) {
+                  console.log(`[${agent.name}] New file - will create ${targetFile}`);
+                  // For new files, we'll use the REPLACE content directly
+                  currentContent = '';
+                } else {
+                  throw readErr; // Re-throw if it's a different error
+                }
+              }
+              
+              // Parse SEARCH/REPLACE blocks
+              const diffPattern = /<<<SEARCH\n([\s\S]*?)>>>REPLACE\n([\s\S]*?)<<<END/g;
+              let match;
+              let newContent = currentContent;
+              let fileChanged = false;
+              const isNewFile = currentContent === '';
+              
+              while ((match = diffPattern.exec(block)) !== null) {
+                const searchText = match[1].trimEnd();
+                const replaceText = match[2].trimEnd();
+                
+                if (isNewFile) {
+                  // For new files, use REPLACE as the full content
+                  newContent = replaceText;
+                  changesApplied++;
+                  fileChanged = true;
+                  console.log(`[${agent.name}] Created new file ${targetFile}`);
+                } else if (newContent.includes(searchText)) {
+                  newContent = newContent.replace(searchText, replaceText);
+                  changesApplied++;
+                  fileChanged = true;
+                  console.log(`[${agent.name}] Applied change to ${targetFile}`);
+                } else {
+                  console.log(`[${agent.name}] Search text not found in ${targetFile}`);
+                }
+              }
+              
+              // Write if changed
+              if (fileChanged) {
+                writeProjectFile(targetFile, newContent);
+              }
+            }
+            
+            if (changesApplied > 0) {
+              // Tiered build verification - skip fast syntax check (complex to track files)
+              let buildPassed = false;
+              let buildMessage = '';
+              
+              // Always do full build for code fixes
+              console.log(`[${agent.name}] 🔍 Running build verification...`);
+              const buildResult = await runCommand('npm run build', 120000);
+              if (buildResult.exitCode === 0) {
+                buildPassed = true;
+                buildMessage = 'Build passed';
+              } else {
+                buildMessage = buildResult.stderr.slice(0, 150);
+              }
+              
+              if (buildPassed) {
+                actionTaken = `✅ Implemented code fix. ${changesApplied} changes applied. ${buildMessage}.`;
+                console.log(`[${agent.name}] ${actionTaken}`);
+                try { await client.log(`🔧 Code fix: ${changesApplied} changes - ${buildMessage}`, 'success'); } catch(e) {}
+              } else {
+                actionTaken = `⚠️ Code written but build failed: ${buildMessage}`;
+                console.log(`[${agent.name}] ${actionTaken}`);
+              }
+            } else {
+              actionTaken = `⚠️ No changes applied - search patterns not found`;
+            }
+          } catch (diffErr) {
+            console.error(`[${agent.name}] Diff parsing error:`, diffErr.message);
+            actionTaken = `⚠️ Diff parsing failed: ${diffErr.message}`;
+          }
+        } else {
+          console.log(`[${agent.name}] Response did not contain expected diff format`);
+          actionTaken = `⚠️ Agent did not return valid diff format`;
+        }
+      } catch (codeErr) {
+        console.error(`[${agent.name}] FULL ERROR:`, codeErr);
+        console.error(`[${agent.name}] ERROR STACK:`, codeErr.stack);
+        console.error(`[${agent.name}] Code executor error:`, codeErr.message);
+        actionTaken = `⚠️ Code executor error: ${codeErr.message}`;
+      }
+      
+      // Skip normal website task handling for code_fix tasks
+      websiteContext = '';
+      isWebsiteTask = false;
+    }
+
+    // If code_fix task completed (either success or failure), we're done - don't fall through
+    console.log(`[${agent.name}] CHECKING: isCodeFixTask=${isCodeFixTask}, hasActionTaken=${!!actionTaken}`);
+    if (isCodeFixTask && actionTaken) {
+      console.log(`[${agent.name}] CODE FIX BLOCK REACHED! actionTaken: ${actionTaken.substring(0, 50)}...`);
+      // Complete the task with whatever actionTaken says
+      const finalResult = actionTaken;
+      
+      // Restart app if build passed
+      if (actionTaken.includes('Build passed')) {
+        try {
+          console.log(`[${agent.name}] Restarting Command Centre to apply changes...`);
+          const { exec } = require('child_process');
+          exec('pm2 restart command-centre', (err, stdout) => {
+            if (err) {
+              console.log(`[${agent.name}] Restart warning: ${err.message}`);
+            } else {
+              console.log(`[${agent.name}] ✅ Command Centre restarted`);
+            }
+          });
+        } catch (e) {
+          console.log(`[${agent.name}] Could not restart: ${e.message}`);
+        }
+      }
+      
+      // Update task - check for failure
+      const isFailure = finalResult.includes('⚠️') || finalResult.includes('failed') || finalResult.includes('error');
+      const needsReview = task.description && 
+        (task.description.toLowerCase().includes('approve') || 
+         task.description.toLowerCase().includes('review'));
+      
+      if (needsReview) {
+        console.log(`[${agent.name}] About to save - needsReview result: ${finalResult}`);
+        await client.updateTaskStatus(task.id, 'review', finalResult);
+        try { client.log(`Task completed - awaiting review`, 'task'); } catch(e) {}
+        console.log(`[${agent.name}] ✅ Task completed (review): ${task.title}`);
+      } else if (isFailure) {
+        console.log(`[${agent.name}] About to save - FAILED: ${finalResult}`);
+        await client.updateTaskStatus(task.id, 'failed', finalResult);
+        try { client.log(`Task failed - ${finalResult}`, 'task'); } catch(e) {}
+        console.log(`[${agent.name}] ❌ Task failed: ${task.title}`);
+        
+        // Save failure lesson to memory
+        try {
+          const errorMsg = finalResult.includes('File not found') ? 'File does not exist - check project structure' :
+                         finalResult.includes('Build failed') ? 'Build failed - check syntax and imports' :
+                         finalResult.includes('diff format') ? 'AI did not output correct diff format - simplify the change' :
+                         'General task failure';
+          await client.saveMemory(
+            `❌ FAILURE LESSON: ${task.title} - ${errorMsg}. Task type: ${task.task_type || 'unknown'}`,
+            'failure_lesson',
+            agent.id
+          );
+        } catch(e) {}
+      } else {
+        console.log(`[${agent.name}] About to save - finalResult: ${finalResult}`);
+        await client.updateTaskStatus(task.id, 'done', finalResult);
+        try { client.log(`Task completed - ${finalResult}`, 'task'); } catch(e) {}
+        console.log(`[${agent.name}] ✅ Task completed: ${task.title}`);
+      }
+      
+      // Save memory
+      try {
+        await client.saveMemory(
+          `${agent.name} completed task: ${task.title}. Result: ${finalResult}`,
+          'task_result',
+          agent.id
+        );
+      } catch(e) {}
+      
+      return; // EXIT - don't fall through to other handlers
+    }
+
     // Build action prompt - agents should take REAL actions
     let actionPrompt = '';
 
@@ -1025,6 +1415,7 @@ CONTENT: [your complete deliverable in markdown]
 
   } catch (actionErr) {
     console.error(`[${agent.name}] Action error:`, actionErr.message);
+    console.error(`[${agent.name}] Action error STACK:`, actionErr.stack);
     actionTaken = `⚠️ Action failed: ${actionErr.message}`;
   }
 
@@ -1032,18 +1423,40 @@ CONTENT: [your complete deliverable in markdown]
   // Use actionTaken result (short confirmation) - not long output
   const finalResult = actionTaken || 'Task completed';
 
-  // Check if task needs review
+  // For code_fix tasks, restart Command Centre if build passed
+  if (isCodeFixTask && actionTaken?.includes('Build passed')) {
+    try {
+      console.log(`[${agent.name}] Restarting Command Centre to apply changes...`);
+      const { exec } = require('child_process');
+      exec('pm2 restart command-centre', (err, stdout) => {
+        if (err) {
+          console.log(`[${agent.name}] Restart warning: ${err.message}`);
+        } else {
+          console.log(`[${agent.name}] ✅ Command Centre restarted`);
+        }
+      });
+    } catch (e) {
+      console.log(`[${agent.name}] Could not restart: ${e.message}`);
+    }
+  }
+
+  // Check if task needs review or failed
+  const isFailure = finalResult.includes('⚠️') || finalResult.includes('failed') || finalResult.includes('error');
   const needsReview = task.description && 
     (task.description.toLowerCase().includes('approve') || 
      task.description.toLowerCase().includes('review'));
   
   if (needsReview) {
     await client.updateTaskStatus(task.id, 'review', finalResult);
-    client.log(`Task completed - awaiting review`, 'task');
+    try { client.log(`Task completed - awaiting review`, 'task'); } catch(e) {}
     console.log(`[${agent.name}] ✅ Task completed (review): ${task.title}`);
+  } else if (isFailure) {
+    await client.updateTaskStatus(task.id, 'failed', finalResult);
+    try { client.log(`Task failed - ${finalResult}`, 'task'); } catch(e) {}
+    console.log(`[${agent.name}] ❌ Task failed: ${task.title}`);
   } else {
     await client.updateTaskStatus(task.id, 'done', finalResult);
-    client.log(`Task completed - ${finalResult}`, 'task');
+    try { client.log(`Task completed - ${finalResult}`, 'task'); } catch(e) {}
     console.log(`[${agent.name}] ✅ Task completed: ${task.title}`);
   }
   
@@ -1073,7 +1486,7 @@ async function agentWorkLoop(agent) {
     // STRICT MODE: Only work on assigned tasks - NO auto task creation
     
     // Check for backlog tasks
-    const backlogTasks = await client.getBacklogTasks(agent.id);
+    const backlogTasks = await client.getBacklogTasks(agent.id, agent.name);
     
     if (backlogTasks && backlogTasks.length > 0) {
       // Work on backlog task
@@ -1146,8 +1559,38 @@ async function runAgent(agent) {
 
     // NO startup burst - only work on assigned tasks
 
+    // Subscribe to realtime task notifications
+    let realtimeTaskCallback = null;
+    const pendingRealtimeTasks = [];
+    
+    realtimeTaskCallback = (newTask) => {
+      // Check if task matches this agent's task type
+      const taskTypeMatch = 
+        (agent.name === 'Orbit' && ['code_fix', 'deployment', 'website_update'].includes(newTask.task_type)) ||
+        (agent.name === 'Atlas' && ['research', 'analysis', 'seo'].includes(newTask.task_type)) ||
+        (agent.name === 'Neo' && ['strategy', 'planning', 'general'].includes(newTask.task_type));
+      
+      if (taskTypeMatch) {
+        console.log(`[${agent.name}] 📡 Processing realtime task: ${newTask.title}`);
+        pendingRealtimeTasks.push(newTask);
+      }
+    };
+    
+    subscribeToNewTasks(agent.id, agent.name, realtimeTaskCallback);
+
     // Main work loop every 90 seconds
     const taskInterval = setInterval(async () => {
+      // First check pending realtime tasks
+      while (pendingRealtimeTasks.length > 0) {
+        const realtimeTask = pendingRealtimeTasks.shift();
+        try {
+          await executeTask(agent, realtimeTask, client);
+        } catch (e) {
+          console.error(`[${agent.name}] Realtime task error:`, e.message);
+        }
+      }
+      
+      // Then do regular polling
       await agentWorkLoop(agent);
     }, LOOP_INTERVAL_MS);
 
@@ -1360,6 +1803,32 @@ setInterval(() => {
   console.log('✅ Agents alive - watchdog ' + new Date().toISOString());
 }, 10 * 60 * 1000);
 
+// ========== MONITORING & ALERTS ==========
+
+setInterval(async () => {
+  try {
+    // Check for failed tasks
+    const failedRes = await fetch(`${API_BASE}/api/tasks?status=failed&limit=5`);
+    const failedData = await failedRes.json();
+    if (failedData.tasks && failedData.tasks.length > 0) {
+      console.log(`⚠️ ALERT: ${failedData.tasks.length} failed tasks`);
+    }
+    
+    // Check for stale in-progress tasks (>2 hours)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const staleRes = await fetch(`${API_BASE}/api/tasks?status=in-progress`);
+    const staleData = await staleRes.json();
+    if (staleData.tasks) {
+      const staleTasks = staleData.tasks.filter(t => new Date(t.updated_at) < new Date(twoHoursAgo));
+      if (staleTasks.length > 0) {
+        console.log(`⚠️ ALERT: ${staleTasks.length} stale in-progress tasks`);
+      }
+    }
+  } catch (e) {
+    // Silent fail for monitoring
+  }
+}, 5 * 60 * 1000); // Check every 5 minutes
+
 // ========== WEBSITE IMPROVEMENT CYCLE (every 6 hours) ==========
 
 async function websiteImprovementCycle() {
@@ -1441,7 +1910,7 @@ TASK_DESCRIPTION: [full instructions including exact copy to write]
       })
     });
 
-    await logToCommandCentre(atlasId,
+    await logToCommandCentre(ATLAS_ID,
       `🌐 Website improvement queued: ${titleMatch[1].trim()} → ${assignMatch[1].trim()}`,
       'task'
     );
@@ -1491,7 +1960,7 @@ ACTION: create_blog_post
 TITLE: [your chosen title]
 CONTENT: [full blog post in markdown]
         `.trim(),
-        assigned_to: atlasId,
+        assigned_to: ATLAS_ID,
         status: 'backlog',
         priority: 'medium'
       })
@@ -1533,7 +2002,7 @@ IMPLEMENT directly in website files:
 
 Make real file changes. Rebuild and restart after.
         `.trim(),
-        assigned_to: orbitId,
+        assigned_to: ORBIT_ID,
         status: 'backlog',
         priority: 'medium'
       })
@@ -1688,7 +2157,7 @@ async function executeNextEnhancement() {
     await fetch(`${API_BASE}/api/website/enhancements/${enhancement.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'in_progress', agent_id: orbitId })
+      body: JSON.stringify({ status: 'in_progress', agent_id: ORBIT_ID })
     });
 
     console.log(`🔧 Implementing: ${enhancement.issue}`);

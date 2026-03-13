@@ -25,8 +25,10 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@types/react": "19.2.14",
     "autoprefixer": "^10.4.17",
     "pg": "^8.20.0",
-    "postcss": "^8.4.35"
+    "postcss": "^8.4.35",
+    "typescript": "5.9.3"
   }
 }

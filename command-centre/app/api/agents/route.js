@@ -1,5 +1,9 @@
+// DEBUG TEST MARKER 2026
+// HELLO FROM ORBIT
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseClient';
+
+console.log('agents API called');
 
 export async function GET() {
   try {
