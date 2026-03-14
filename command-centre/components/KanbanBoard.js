@@ -8,6 +8,13 @@ const columns = [
   { id: 'done', label: 'Done' },
 ];
 
+const priorityConfig = {
+  0: { label: 'P0', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', name: 'Critical' },
+  1: { label: 'P1', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', name: 'High' },
+  2: { label: 'P2', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.15)', name: 'Medium' },
+  3: { label: 'P3', color: '#6b7280', bg: 'rgba(107, 114, 128, 0.15)', name: 'Low' },
+};
+
 export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }) {
   const [draggedTask, setDraggedTask] = useState(null);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -75,58 +82,90 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
               <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
                 {columnTasks
                   .slice(0, column.id === 'done' && !showAllDone && !doneCollapsed ? DONE_DISPLAY_LIMIT : undefined)
-                  .map((task) => (
-                  <div
-                    key={task.id}
-                    className="kanban-task"
-                    draggable
-                    onDragStart={() => handleDragStart(task)}
-                    onClick={() => handleTaskClick(task)}
-                    style={{ opacity: draggedTask?.id === task.id ? 0.5 : 1, cursor: 'pointer' }}
-                  >
-                    <div className="kanban-task-title">{task.title}</div>
-                    
-                    <div className="kanban-task-meta">
-                      <span className={`priority ${task.priority}`}>
-                        {task.priority}
-                      </span>
-                      {task.created_by === 'subtask' && (
-                        <span style={{ fontSize: 10, color: '#8b5cf6' }} title="Subtask">🔗</span>
-                      )}
-                      
-                      {task.agent && (
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                          <div
-                            className="avatar"
-                            style={{
-                              width: 16,
-                              height: 16,
-                              fontSize: 8,
-                              background: task.agent.avatar_color || '#10b981',
-                            }}
-                          >
-                            {task.agent.name?.[0]}
-                          </div>
-                        </span>
-                      )}
-                    </div>
-
-                    {task.description && (
+                  .map((task) => {
+                    const priority = priorityConfig[task.priority_score ?? 2];
+                    return (
                       <div
-                        style={{
-                          fontSize: 11,
-                          color: 'var(--text-muted)',
-                          marginTop: 8,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
+                        key={task.id}
+                        className="kanban-task"
+                        draggable
+                        onDragStart={() => handleDragStart(task)}
+                        onClick={() => handleTaskClick(task)}
+                        style={{ 
+                          opacity: draggedTask?.id === task.id ? 0.5 : 1, 
+                          cursor: 'pointer',
+                          borderLeft: `3px solid ${priority?.color || '#6b7280'}`
                         }}
                       >
-                        {task.description}
+                        <div className="kanban-task-title">{task.title}</div>
+                        
+                        <div className="kanban-task-meta">
+                          <span 
+                            className="priority-badge"
+                            style={{
+                              background: priority?.bg,
+                              color: priority?.color,
+                              padding: '2px 6px',
+                              borderRadius: 4,
+                              fontSize: 10,
+                              fontWeight: 600,
+                              border: `1px solid ${priority?.color}40`
+                            }}
+                            title={priority?.name}
+                          >
+                            {priority?.label}
+                          </span>
+                          
+                          {task.due_date && (
+                            <span 
+                              style={{ 
+                                fontSize: 10, 
+                                color: new Date(task.due_date) < new Date() && task.status !== 'done' ? '#ef4444' : 'var(--text-muted)'
+                              }}
+                              title="Due date"
+                            >
+                              📅 {new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                            </span>
+                          )}
+                          
+                          {task.created_by === 'subtask' && (
+                            <span style={{ fontSize: 10, color: '#8b5cf6' }} title="Subtask">🔗</span>
+                          )}
+                          
+                          {task.agent && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <div
+                                className="avatar"
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  fontSize: 8,
+                                  background: task.agent.avatar_color || '#10b981',
+                                }}
+                              >
+                                {task.agent.name?.[0]}
+                              </div>
+                            </span>
+                          )}
+                        </div>
+
+                        {task.description && (
+                          <div
+                            style={{
+                              fontSize: 11,
+                              color: 'var(--text-muted)',
+                              marginTop: 8,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {task.description}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
-                ))}
+                    );
+                  })}
 
                 {columnTasks.length === 0 && (
                   <div
@@ -198,14 +237,48 @@ export default function KanbanBoard({ tasks, agents, onStatusChange, onApprove }
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 12 }}>{selectedTask.title}</div>
               
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                 <span className={`status ${selectedTask.status}`}>
                   <span className="status-dot" />
                   {selectedTask.status}
                 </span>
-                <span className={`priority ${selectedTask.priority}`}>
-                  {selectedTask.priority}
-                </span>
+                {(() => {
+                  const p = priorityConfig[selectedTask.priority_score ?? 2];
+                  return (
+                    <span
+                      style={{
+                        background: p?.bg,
+                        color: p?.color,
+                        padding: '4px 10px',
+                        borderRadius: 4,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        border: `1px solid ${p?.color}40`
+                      }}
+                    >
+                      {p?.label} - {p?.name}
+                    </span>
+                  );
+                })()}
+                
+                {selectedTask.due_date && (
+                  <span 
+                    style={{ 
+                      padding: '4px 10px',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      background: new Date(selectedTask.due_date) < new Date() && selectedTask.status !== 'done' 
+                        ? 'rgba(239, 68, 68, 0.15)' 
+                        : 'var(--bg-tertiary)',
+                      color: new Date(selectedTask.due_date) < new Date() && selectedTask.status !== 'done' 
+                        ? '#ef4444' 
+                        : 'var(--text-primary)',
+                      border: `1px solid ${new Date(selectedTask.due_date) < new Date() && selectedTask.status !== 'done' ? '#ef444440' : 'var(--border-color)'}`
+                    }}
+                  >
+                    📅 Due: {new Date(selectedTask.due_date).toLocaleDateString()}
+                  </span>
+                )}
               </div>
 
               {selectedTask.agent && (

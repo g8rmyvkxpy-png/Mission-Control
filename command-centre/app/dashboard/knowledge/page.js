@@ -1,304 +1,484 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
-export default function KnowledgeBasePage() {
-  const [clients, setClients] = useState([]);
-  const [selectedClient, setSelectedClient] = useState('');
-  const [documents, setDocuments] = useState([]);
-  const [chunks, setChunks] = useState([]);
-  const [analytics, setAnalytics] = useState(null);
-  const [query, setQuery] = useState('');
-  const [answer, setAnswer] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('documents');
+export default function KnowledgePage() {
+  const [memories, setMemories] = useState([]);
+  const [docs, setDocs] = useState([]);
+  const [agents, setAgents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
 
   useEffect(() => {
-    fetchClients();
+    fetchData();
+    const interval = setInterval(fetchData, 5000);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (selectedClient) {
-      fetchDocuments();
-      fetchAnalytics();
+  async function fetchData() {
+    const [memRes, docRes, agentRes] = await Promise.all([
+      fetch('/api/memories'),
+      fetch('/api/docs'),
+      fetch('/api/agents')
+    ]);
+    
+    const memData = await memRes.json();
+    const docData = await docRes.json();
+    const agentData = await agentRes.json();
+    
+    setMemories(memData.memories || []);
+    setDocs(docData.docs || []);
+    setAgents(agentData.agents || []);
+    setLoading(false);
+  }
+
+  // Filter items based on search and tab
+  const filteredItems = useMemo(() => {
+    let items = [];
+    
+    if (activeTab === 'all' || activeTab === 'memories') {
+      const memItems = memories.map(m => ({
+        type: 'memory',
+        id: m.id,
+        title: m.title || 'Untitled Memory',
+        content: m.content,
+        date: m.memory_date || m.created_at,
+        agentId: m.agent_id,
+        metadata: m
+      }));
+      items = [...items, ...memItems];
     }
-  }, [selectedClient]);
-
-  const fetchClients = async () => {
-    const res = await fetch('http://72.62.231.18:3004/api/clients');
-    const data = await res.json();
-    setClients(data.clients || []);
-    if (data.clients?.length > 0) {
-      setSelectedClient(data.clients[0].id);
+    
+    if (activeTab === 'all' || activeTab === 'docs') {
+      const docItems = docs.map(d => ({
+        type: 'doc',
+        id: d.id,
+        title: d.title,
+        content: d.content,
+        date: d.created_at,
+        category: d.category,
+        format: d.format,
+        metadata: d
+      }));
+      items = [...items, ...docItems];
     }
-  };
+    
+    if (search) {
+      const s = search.toLowerCase();
+      items = items.filter(i => 
+        (i.title && i.title.toLowerCase().includes(s)) ||
+        (i.content && i.content.toLowerCase().includes(s))
+      );
+    }
+    
+    return items.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [memories, docs, search, activeTab]);
 
-  const fetchDocuments = async () => {
-    const res = await fetch(`http://72.62.231.18:3006/api/rag/documents?clientId=${selectedClient}`);
-    const data = await res.json();
-    setDocuments(data.documents || []);
-  };
+  function getTypeBadge(item) {
+    if (item.type === 'memory') {
+      const mem = item.metadata;
+      const type = mem.memory_type || 'conversation';
+      const colors = {
+        conversation: '#3b82f6',
+        longterm: '#10b981',
+        note: '#f59e0b',
+        insight: '#8b5cf6'
+      };
+      return { label: '💭 Memory', color: colors[type] || colors.conversation };
+    } else {
+      const colors = {
+        newsletter: '#8b5cf6',
+        script: '#06b6d4',
+        plan: '#f59e0b',
+        research: '#10b981',
+        report: '#3b82f6',
+        general: '#888'
+      };
+      return { label: '📄 Doc', color: colors[item.category] || colors.general };
+    }
+  }
 
-  const fetchAnalytics = async () => {
-    const res = await fetch(`http://72.62.231.18:3006/api/rag/query?clientId=${selectedClient}`);
-    const data = await res.json();
-    setAnalytics(data);
-  };
+  function formatDate(dateStr) {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { 
+      month: 'short', day: 'numeric', year: 'numeric' 
+    });
+  }
 
-  const fetchChunks = async (docId) => {
-    const res = await fetch(`http://72.62.231.18:3006/api/rag/documents?documentId=${docId}`);
-    const data = await res.json();
-    setChunks(data.chunks || []);
-  };
+  function stripMarkdown(text) {
+    if (!text) return '';
+    return text
+      .replace(/^#{1,6}\s+/gm, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`{1,3}(.*?)`{1,3}/g, '$1')
+      .replace(/\[(.*?)\]\(.*?\)/g, '$1')
+      .replace(/^[-*+]\s+/gm, '')
+      .replace(/^>\s+/gm, '')
+      .replace(/\n{2,}/g, ' ')
+      .trim();
+  }
 
-  const handleQuery = async () => {
-    if (!query.trim()) return;
+  async function deleteItem(item) {
+    const confirmMsg = item.type === 'memory' ? 'Delete this memory?' : 'Delete this document?';
+    if (!confirm(confirmMsg)) return;
+    
+    const endpoint = item.type === 'memory' ? `/api/memories?id=${item.id}` : `/api/docs?id=${item.id}`;
+    await fetch(endpoint, { method: 'DELETE' });
+    setSelectedItem(null);
+    fetchData();
+  }
+
+  if (loading) {
+    return <div className="loading">Loading knowledge base...</div>;
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, marginBottom: 4 }}>🧠 Knowledge Base</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+          Memories and documents - all in one place
+        </p>
+      </div>
+
+      {/* Search */}
+      <div style={{ marginBottom: 16 }}>
+        <input
+          type="text"
+          className="form-input"
+          placeholder="Search memories and documents..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: '100%' }}
+        />
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, borderBottom: '1px solid var(--border-color)', paddingBottom: 12 }}>
+        {[
+          { id: 'all', label: '📚 All' },
+          { id: 'memories', label: '💭 Memories' },
+          { id: 'docs', label: '📄 Documents' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 6,
+              border: 'none',
+              background: activeTab === tab.id ? 'var(--primary-color)' : 'transparent',
+              color: activeTab === tab.id ? 'white' : 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: 13
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+        
+        <button 
+          className="btn btn-primary" 
+          onClick={() => setShowAddModal(true)}
+          style={{ marginLeft: 'auto', padding: '8px 16px' }}
+        >
+          + Add New
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: 'flex', gap: 16, marginBottom: 20 }}>
+        <div className="card" style={{ padding: '12px 16px', flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{memories.length}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Memories</div>
+        </div>
+        <div className="card" style={{ padding: '12px 16px', flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{docs.length}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Documents</div>
+        </div>
+        <div className="card" style={{ padding: '12px 16px', flex: 1, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{filteredItems.length}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>Showing</div>
+        </div>
+      </div>
+
+      {/* Items List */}
+      <div style={{ display: 'grid', gap: 12 }}>
+        {filteredItems.map(item => {
+          const badge = getTypeBadge(item);
+          const preview = stripMarkdown(item.content || '').slice(0, 120);
+          
+          return (
+            <div 
+              key={`${item.type}-${item.id}`}
+              className="card"
+              style={{ 
+                padding: 16, 
+                cursor: 'pointer',
+                borderLeft: `3px solid ${badge.color}`
+              }}
+              onClick={() => setSelectedItem(item)}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                    {formatDate(item.date)}
+                    {item.type === 'doc' && item.category && (
+                      <span style={{ marginLeft: 8, color: badge.color }}>• {item.category}</span>
+                    )}
+                  </div>
+                </div>
+                <span style={{
+                  background: `${badge.color}20`,
+                  color: badge.color,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  fontSize: 11,
+                  fontWeight: 500
+                }}>
+                  {badge.label}
+                </span>
+              </div>
+              
+              {preview && (
+                <div style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                  {preview}...
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {filteredItems.length === 0 && (
+          <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>
+            <div style={{ fontSize: 40, marginBottom: 16 }}>📭</div>
+            <div>No items found. Add your first memory or document!</div>
+          </div>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <div className="modal-overlay" onClick={() => setSelectedItem(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 700, maxHeight: '80vh', overflow: 'auto' }}>
+            <div className="modal-header">
+              <h2 className="modal-title">{selectedItem.title}</h2>
+              <button className="modal-close" onClick={() => setSelectedItem(null)}>×</button>
+            </div>
+            
+            <div style={{ marginBottom: 12 }}>
+              <span style={{
+                background: `${getTypeBadge(selectedItem).color}20`,
+                color: getTypeBadge(selectedItem).color,
+                padding: '4px 10px',
+                borderRadius: 4,
+                fontSize: 12
+              }}>
+                {getTypeBadge(selectedItem).label}
+              </span>
+              <span style={{ marginLeft: 8, color: 'var(--text-secondary)', fontSize: 12 }}>
+                {formatDate(selectedItem.date)}
+              </span>
+            </div>
+            
+            <div style={{ 
+              background: 'var(--bg-tertiary)', 
+              padding: 16, 
+              borderRadius: 8, 
+              whiteSpace: 'pre-wrap',
+              fontSize: 13,
+              lineHeight: 1.6,
+              maxHeight: 400,
+              overflow: 'auto'
+            }}>
+              {selectedItem.content || 'No content'}
+            </div>
+            
+            <div className="modal-footer">
+              <button 
+                className="btn" 
+                style={{ background: '#ef4444', color: '#fff' }}
+                onClick={() => deleteItem(selectedItem)}
+              >
+                Delete
+              </button>
+              <button className="btn" onClick={() => setSelectedItem(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Modal */}
+      {showAddModal && (
+        <AddModal 
+          agents={agents} 
+          onClose={() => setShowAddModal(false)} 
+          onCreated={() => {
+            setShowAddModal(false);
+            fetchData();
+          }} 
+        />
+      )}
+    </div>
+  );
+}
+
+function AddModal({ agents, onClose, onCreated }) {
+  const [itemType, setItemType] = useState('memory');
+  const [loading, setLoading] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    content: '',
+    memory_type: 'note',
+    category: 'general',
+    agent_id: ''
+  });
+
+  async function handleSubmit(e) {
+    e.preventDefault();
     setLoading(true);
+    
     try {
-      const res = await fetch('http://72.62.231.18:3006/api/rag/query', {
+      const endpoint = itemType === 'memory' ? '/api/memories' : '/api/docs';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientId: selectedClient, query })
+        body: JSON.stringify(form)
       });
-      const data = await res.json();
-      setAnswer(data);
-      fetchAnalytics();
+      
+      if (res.ok) onCreated();
     } catch (err) {
       console.error(err);
     }
     setLoading(false);
-  };
+  }
 
   return (
-    <div style={{ padding: '2rem' }}>
-      <h1 style={{ marginBottom: '1.5rem' }}>🧠 Knowledge Base</h1>
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 500 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Add New</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
 
-      {/* Client Selector */}
-      <div style={{ marginBottom: '2rem' }}>
-        <label style={{ color: '#888', marginRight: '1rem' }}>Select Client:</label>
-        <select
-          value={selectedClient}
-          onChange={(e) => setSelectedClient(e.target.value)}
-          style={{
-            background: '#111',
-            color: '#fff',
-            border: '1px solid #333',
-            padding: '0.5rem 1rem',
-            borderRadius: '6px',
-            fontSize: '1rem'
-          }}
-        >
-          {clients.map(c => (
-            <option key={c.id} value={c.id}>{c.business_name}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid #222', marginBottom: '1.5rem' }}>
-        {['documents', 'query', 'analytics', 'chunks'].map(tab => (
+        {/* Type Selector */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            type="button"
+            onClick={() => setItemType('memory')}
             style={{
-              background: 'none',
-              border: 'none',
-              color: activeTab === tab ? '#10b981' : '#666',
-              padding: '0.5rem 1rem',
+              flex: 1,
+              padding: 12,
+              border: `2px solid ${itemType === 'memory' ? '#3b82f6' : 'var(--border-color)'}`,
+              background: itemType === 'memory' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-tertiary)',
+              borderRadius: 8,
               cursor: 'pointer',
-              borderBottom: activeTab === tab ? '2px solid #10b981' : '2px solid transparent',
-              textTransform: 'capitalize'
+              color: itemType === 'memory' ? '#3b82f6' : 'var(--text-secondary)'
             }}
           >
-            {tab}
+            💭 Memory
           </button>
-        ))}
-      </div>
-
-      {/* Documents Tab */}
-      {activeTab === 'documents' && (
-        <div>
-          <h3>📚 Documents ({documents.length})</h3>
-          {documents.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '3rem', 
-              background: 'var(--bg-card)', 
-              borderRadius: 12,
-              border: '1px dashed #30363d'
-            }}>
-              <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
-              <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: 'var(--text-primary)' }}>
-                No documents yet
-              </div>
-              <div style={{ fontSize: 14, marginBottom: 24, color: '#888' }}>
-                Upload your first document to enable AI-powered Q&A
-              </div>
-              
-              {/* Onboarding guide */}
-              <div style={{ 
-                maxWidth: 400, 
-                margin: '0 auto', 
-                textAlign: 'left',
-                background: 'var(--bg)',
-                borderRadius: 8,
-                padding: 20
-              }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: '#888', marginBottom: 12, textTransform: 'uppercase' }}>
-                  What to upload
-                </div>
-                {[
-                  { icon: '📋', text: 'SOPs and playbooks' },
-                  { icon: '📊', text: 'Reports and analytics' },
-                  { icon: '📧', text: 'Client briefs and briefs' },
-                  { icon: '❓', text: 'FAQ and knowledge base articles' }
-                ].map((item, i) => (
-                  <div key={i} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: 12, 
-                    padding: '8px 0',
-                    borderBottom: i < 3 ? '1px solid #30363d' : 'none'
-                  }}>
-                    <span style={{ fontSize: 16 }}>{item.icon}</span>
-                    <span style={{ fontSize: 13, color: '#888' }}>{item.text}</span>
-                  </div>
-                ))}
-              </div>
-              
-              <p style={{ fontSize: 12, color: '#666', marginTop: 16 }}>
-                Documents are auto-processed when clients upload them via the dashboard
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {documents.map(doc => (
-                <div key={doc.id} style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #222' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: '600' }}>{doc.title}</div>
-                      <div style={{ color: '#666', fontSize: '0.85rem' }}>
-                        {doc.chunk_count} chunks • {new Date(doc.created_at).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <span style={{ 
-                      background: doc.status === 'ready' ? '#10b981' : '#f59e0b', 
-                      color: '#000', padding: '2px 8px', borderRadius: '4px', fontSize: '0.8rem' 
-                    }}>
-                      {doc.status}
-                    </span>
-                  </div>
-                  <button 
-                    onClick={() => fetchChunks(doc.id)}
-                    style={{ marginTop: '0.5rem', background: '#222', color: '#ccc', border: 'none', padding: '0.3rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-                  >
-                    View Chunks
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          <button
+            type="button"
+            onClick={() => setItemType('doc')}
+            style={{
+              flex: 1,
+              padding: 12,
+              border: `2px solid ${itemType === 'doc' ? '#10b981' : 'var(--border-color)'}`,
+              background: itemType === 'doc' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-tertiary)',
+              borderRadius: 8,
+              cursor: 'pointer',
+              color: itemType === 'doc' ? '#10b981' : 'var(--text-secondary)'
+            }}
+          >
+            📄 Document
+          </button>
         </div>
-      )}
 
-      {/* Query Tab */}
-      {activeTab === 'query' && (
-        <div>
-          <h3>❓ Query Tester</h3>
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Title</label>
             <input
               type="text"
-              placeholder="Ask a question..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleQuery()}
-              style={{ flex: 1, padding: '1rem', borderRadius: '8px', border: '1px solid #333', background: '#111', color: '#fff', fontSize: '1rem' }}
+              className="form-input"
+              value={form.title}
+              onChange={e => setForm({...form, title: e.target.value})}
+              required
             />
-            <button 
-              onClick={handleQuery}
-              disabled={loading}
-              style={{ background: '#3b82f6', color: '#fff', padding: '1rem 2rem', borderRadius: '8px', border: 'none', cursor: loading ? 'not-allowed' : 'pointer', fontWeight: '600' }}
-            >
-              {loading ? 'Thinking...' : 'Ask'}
-            </button>
           </div>
 
-          {answer && (
-            <div style={{ background: '#111', padding: '1.5rem', borderRadius: '8px', border: '1px solid #222' }}>
-              <div style={{ color: '#10b981', fontWeight: '600', marginBottom: '1rem' }}>Answer:</div>
-              <p style={{ lineHeight: '1.6' }}>{answer.answer}</p>
-              
-              {answer.chunks?.length > 0 && (
-                <div style={{ marginTop: '1rem' }}>
-                  <div style={{ color: '#888', fontSize: '0.9rem', marginBottom: '0.5rem' }}>Retrieved Chunks:</div>
-                  {answer.chunks.map((chunk, i) => (
-                    <div key={i} style={{ background: '#0a0a0a', padding: '0.8rem', borderRadius: '6px', marginBottom: '0.5rem', fontSize: '0.9rem', color: '#ccc' }}>
-                      <div style={{ fontWeight: '600', marginBottom: '0.3rem' }}>Chunk {chunk.chunkIndex + 1}</div>
-                      {chunk.summary}
-                    </div>
+          <div className="form-group">
+            <label className="form-label">Content</label>
+            <textarea
+              className="form-textarea"
+              value={form.content}
+              onChange={e => setForm({...form, content: e.target.value})}
+              rows={6}
+              required
+            />
+          </div>
+
+          {itemType === 'memory' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="form-group">
+                <label className="form-label">Type</label>
+                <select
+                  className="form-select"
+                  value={form.memory_type}
+                  onChange={e => setForm({...form, memory_type: e.target.value})}
+                >
+                  <option value="conversation">Conversation</option>
+                  <option value="note">Note</option>
+                  <option value="insight">Insight</option>
+                  <option value="longterm">Long-term</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Agent</label>
+                <select
+                  className="form-select"
+                  value={form.agent_id}
+                  onChange={e => setForm({...form, agent_id: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {agents.map(a => (
+                    <option key={a.id} value={a.id}>{a.name}</option>
                   ))}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: '2rem', marginTop: '1rem', color: '#666', fontSize: '0.85rem' }}>
-                <span>✅ Faithfulness: {(answer.faithfulness * 100).toFixed(0)}%</span>
-                <span>🔍 Relevance: {(answer.relevance * 100).toFixed(0)}%</span>
-                <span>⏱️ Latency: {answer.latency}ms</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Analytics Tab */}
-      {activeTab === 'analytics' && (
-        <div>
-          <h3>📊 Analytics</h3>
-          {analytics ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-              <div style={{ background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#10b981' }}>{(analytics.avgFaithfulness * 100).toFixed(0)}%</div>
-                <div style={{ color: '#888' }}>Avg Faithfulness</div>
-              </div>
-              <div style={{ background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#3b82f6' }}>{(analytics.avgRelevance * 100).toFixed(0)}%</div>
-                <div style={{ color: '#888' }}>Avg Relevance</div>
-              </div>
-              <div style={{ background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#f59e0b' }}>{analytics.avgLatency}ms</div>
-                <div style={{ color: '#888' }}>Avg Latency</div>
-              </div>
-              <div style={{ background: '#111', padding: '1.5rem', borderRadius: '12px', border: '1px solid #222', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#fff' }}>{analytics.totalQueries}</div>
-                <div style={{ color: '#888' }}>Total Queries</div>
+                </select>
               </div>
             </div>
           ) : (
-            <p style={{ color: '#666' }}>No analytics data yet.</p>
-          )}
-        </div>
-      )}
-
-      {/* Chunks Tab */}
-      {activeTab === 'chunks' && (
-        <div>
-          <h3>🔍 Chunk Explorer</h3>
-          {chunks.length === 0 ? (
-            <p style={{ color: '#666' }}>Select a document and click "View Chunks" to explore.</p>
-          ) : (
-            <div style={{ display: 'grid', gap: '1rem' }}>
-              {chunks.map(chunk => (
-                <div key={chunk.id} style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #222' }}>
-                  <div style={{ fontWeight: '600', marginBottom: '0.5rem' }}>Chunk {chunk.chunk_index + 1} ({chunk.token_count} tokens)</div>
-                  <div style={{ color: '#888', fontSize: '0.85rem', marginBottom: '0.5rem' }}>📝 {chunk.summary}</div>
-                  <div style={{ color: '#666', fontSize: '0.8rem', marginBottom: '0.5rem' }}>🏷️ {chunk.keywords}</div>
-                  <div style={{ color: '#555', fontSize: '0.8rem', fontStyle: 'italic' }}>❓ {chunk.hypothetical_questions?.replace(/\|\|\|/g, ', ')}</div>
-                </div>
-              ))}
+            <div className="form-group">
+              <label className="form-label">Category</label>
+              <select
+                className="form-select"
+                value={form.category}
+                onChange={e => setForm({...form, category: e.target.value})}
+              >
+                <option value="general">General</option>
+                <option value="newsletter">Newsletter</option>
+                <option value="script">Script</option>
+                <option value="plan">Plan</option>
+                <option value="research">Research</option>
+                <option value="report">Report</option>
+              </select>
             </div>
           )}
-        </div>
-      )}
+
+          <div className="modal-footer">
+            <button type="button" className="btn" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={loading}>
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

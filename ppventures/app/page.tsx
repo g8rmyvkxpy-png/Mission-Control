@@ -250,6 +250,32 @@ export default function Home() {
         </div>
       </section>
 
+      {/* FAQ Section */}
+      <section style={{ padding: '100px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
+        <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>Questions? We have answers.</h2>
+        <p style={{ color: '#a1a1aa', fontSize: '16px', marginBottom: '48px', textAlign: 'center' }}>Everything you need to know before getting started.</p>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {[
+            { q: "Is this actually a real product? Can't I just use ChatGPT?", a: "You could — but you'd spend hours configuring prompts, managing APIs, and building the automation yourself. We give you working agents that run on cron, generate real leads, and integrate with your workflow. Setup takes 5 minutes, not weeks." },
+            { q: "What if the leads aren't good quality?", a: "Neo searches based on YOUR criteria — company size, industry, funding stage, job postings, news. You define what 'qualified' means. We also provide the reasoning for every lead so you can validate the quality yourself." },
+            { q: "Is this just a fancy email sender?", a: "No. Neo researches each lead individually — checks their recent content, company updates, and market position before writing. The outreach is genuinely personalized, not a template with a name swap." },
+            { q: "What if I need to cancel?", a: "Cancel anytime from your dashboard. No contracts, no hidden fees. We're confident you'll stay because the leads actually work — but we don't lock you in." },
+            { q: "How is this different from hiring a VA?", a: "A VA costs $500-2000/month and can only work 8 hours a day. Our agents cost $297/month, work 24/7, never take sick days, and can research 100 companies in the time it takes a VA to drink coffee. Plus, they learn from every interaction." },
+            { q: "Do I need technical skills to use this?", a: "Zero. You fill out a 2-minute form describing your ideal customer. We configure everything. You wake up to leads. That's it." },
+          ].map((faq, i) => (
+            <details key={i} style={{ background: '#1a1a1d', borderRadius: '12px', border: '1px solid #27272a', overflow: 'hidden' }}>
+              <summary style={{ padding: '20px 24px', cursor: 'pointer', fontWeight: '600', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', listStyle: 'none' }}>
+                {faq.q}
+                <span style={{ color: '#10b981', fontSize: '20px' }}>＋</span>
+              </summary>
+              <div style={{ padding: '0 24px 20px', color: '#a1a1aa', lineHeight: 1.6 }}>
+                {faq.a}
+              </div>
+            </details>
+          ))}
+        </div>
+      </section>
+
       {/* Free Sample Report CTA */}
       <section id="sample-report" style={{ padding: '100px 20px', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>

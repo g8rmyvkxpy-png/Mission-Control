@@ -11,6 +11,7 @@ export default function Navbar() {
 
   const navLinks = [
     { href: '/agents', label: 'AI Agents' },
+    { href: '/ai-ops', label: 'AI Ops' },
     { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },

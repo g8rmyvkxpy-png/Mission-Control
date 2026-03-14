@@ -31,6 +31,14 @@
 - Personality system wired into agent execution
 - Memory flush configured for 40K token reserve
 ## Recent Key Decisions
+- [2026-03-14] ### Revenue & Task Priorities Implemented
+  - Created REVENUE_SCHEMA.sql with revenue_entries, pipeline, milestones tables
+  - Enhanced tasks table with priority_score (P0-P3) and due_date
+  - Built /dashboard/revenue page with full CRUD UI
+  - Enhanced KanbanBoard with priority badges and filters
+  - Updated NewTaskModal with P0-P1-P2-P3 priority selector
+  - Server running at localhost:3001
+  - Pending: Supabase schema execution
 - [2026-03-08] ### Zero Idle Agent System
 - [2026-03-08] ### Agent Data Access Fix
 - [2026-03-08] ### Fake Tool Call Fix
