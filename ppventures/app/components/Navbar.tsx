@@ -10,9 +10,7 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/agents', label: 'AI Agents' },
     { href: '/ai-ops', label: 'AI Ops' },
-    { href: '/pricing', label: 'Pricing' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
     { href: '/contact', label: 'Contact' },
@@ -77,7 +75,7 @@ export default function Navbar() {
         </div>
         
         {/* Start Free Trial Button */}
-        <Link href="/pricing#signup" style={{
+        <Link href="/ai-ops#contact" style={{
           padding: '10px 20px',
           background: '#10b981',
           borderRadius: '8px',
@@ -87,7 +85,7 @@ export default function Navbar() {
           textDecoration: 'none',
           transition: 'all 0.2s',
         }}>
-          Start Free Trial
+          Get Started
         </Link>
         
         <SignedIn>
@@ -171,7 +169,7 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <Link href="/pricing#signup" onClick={() => setMobileMenuOpen(false)} style={{
+            <Link href="/ai-ops#contact" onClick={() => setMobileMenuOpen(false)} style={{
               padding: '14px 20px',
               background: '#10b981',
               borderRadius: '8px',
@@ -182,7 +180,7 @@ export default function Navbar() {
               textAlign: 'center',
               marginTop: '8px',
             }}>
-              Start Free Trial
+              Get Started
             </Link>
           </div>
         </div>

@@ -90,9 +90,8 @@ export default function Footer() {
         <div>
           <h4 style={{ fontSize: '14px', fontWeight: '600', marginBottom: '16px', color: '#fff' }}>Product</h4>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <Link href="/ai-agents" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>AI Agents</Link>
+            <Link href="/ai-ops" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>AI Ops</Link>
             <Link href="/services" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Services</Link>
-            <Link href="/pricing" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Pricing</Link>
             <Link href="/automation" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Automation Suite</Link>
             <Link href="/blog" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Blog</Link>
           </div>

@@ -417,7 +417,7 @@ export default function AutomationPage() {
             <p style={{ color: '#52525b', fontSize: '12px', marginTop: '12px' }}>Then $297/month. Cancel anytime.</p>
           </div>
           
-          <Link href="/pricing" style={{ display: 'inline-block', marginTop: '24px', color: '#6b7280', fontSize: '14px' }}>
+          <Link href="/ai-ops#contact" style={{ display: 'inline-block', marginTop: '24px', color: '#6b7280', fontSize: '14px' }}>
             View full pricing comparison →
           </Link>
         </div>

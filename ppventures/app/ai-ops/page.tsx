@@ -30,7 +30,7 @@ export default function AIOpsPage() {
   const offerings = [
     {
       icon: '📧',
-      title: 'Email & Communication Automation',
+      title: 'Email & Communication',
       desc: 'Auto-replies, follow-ups, summarization, and routing'
     },
     {
@@ -45,8 +45,8 @@ export default function AIOpsPage() {
     },
     {
       icon: '🤖',
-      title: 'AI Agents',
-      desc: 'Custom AI assistants that handle repetitive tasks'
+      title: 'AI Workflows',
+      desc: 'Custom automations that handle repetitive tasks'
     },
     {
       icon: '📅',
@@ -55,8 +55,8 @@ export default function AIOpsPage() {
     },
     {
       icon: '💼',
-      title: 'Workflow Automation',
-      desc: 'End-to-end process automation with n8n'
+      title: 'Process Automation',
+      desc: 'End-to-end workflow automation with n8n'
     }
   ];
 
@@ -89,17 +89,6 @@ export default function AIOpsPage() {
       
       {/* Hero */}
       <div style={{ padding: '140px 20px 80px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <div style={{ 
-          display: 'inline-block', 
-          padding: '8px 16px', 
-          background: 'rgba(16, 185, 129, 0.1)', 
-          borderRadius: '20px',
-          marginBottom: '24px',
-          border: '1px solid rgba(16, 185, 129, 0.3)'
-        }}>
-          <span style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>🚀 Now Serving Businesses</span>
-        </div>
-        
         <h1 style={{ 
           fontSize: 'clamp(36px, 6vw, 64px)', 
           fontWeight: '800', 
@@ -109,18 +98,18 @@ export default function AIOpsPage() {
           WebkitTextFillColor: 'transparent',
           lineHeight: 1.1
         }}>
-          Automate Your Business<br/>with AI
+          AI Automation Services
         </h1>
         
         <p style={{ 
           color: '#a1a1aa', 
           fontSize: 'clamp(16px, 2vw, 20px)', 
           maxWidth: '600px',
-          margin: '0 auto 40px',
+          margin: '0 auto 32px',
           lineHeight: 1.6
         }}>
-          We build custom AI automations that save you hours every week. 
-          From email management to data workflows — we handle the tech, you focus on growth.
+          Custom automations built with n8n. We handle the tech — 
+          you focus on growth. Starting at $500 per automation.
         </p>
 
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -132,7 +121,6 @@ export default function AIOpsPage() {
             fontWeight: '700',
             fontSize: '16px',
             textDecoration: 'none',
-            transition: 'transform 0.2s'
           }}>
             Get Free Audit →
           </a>
@@ -155,10 +143,10 @@ export default function AIOpsPage() {
       <div style={{ padding: '80px 20px', position: 'relative', zIndex: 1 }} id="offerings">
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px', textAlign: 'center', color: '#fff' }}>
-            What We Automate
+            Our Services
           </h2>
           <p style={{ color: '#71717a', textAlign: 'center', marginBottom: '48px' }}>
-            Pick from our ready-made solutions or we build custom
+            What we can automate for you
           </p>
           
           <div style={{ 
@@ -196,9 +184,9 @@ export default function AIOpsPage() {
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
             {[
-              { step: '01', title: 'Share Your Process', desc: 'Tell us what tasks eat up your time' },
-              { step: '02', title: 'We Build It', desc: 'Custom automation in 3-7 days' },
-              { step: '03', title: 'You Save Time', desc: 'Wake up to completed work every day' }
+              { step: '01', title: 'Discovery Call', desc: 'Tell us what tasks eat up your time. We identify what can be automated.' },
+              { step: '02', title: 'We Build It', desc: 'Custom automation built in 3-7 days using n8n. We test with your real data.' },
+              { step: '03', title: 'You Save Time', desc: 'Wake up to completed work every day. We provide 30-day support.' }
             ].map((item, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }}>
                 <div style={{ 
@@ -227,10 +215,10 @@ export default function AIOpsPage() {
       <div style={{ padding: '80px 20px', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px', textAlign: 'center', color: '#fff' }}>
-            Simple Pricing
+            Pricing
           </h2>
           <p style={{ color: '#71717a', textAlign: 'center', marginBottom: '48px' }}>
-            No hidden fees. Cancel anytime.
+            Simple, transparent pricing. No hidden fees.
           </p>
           
           <div style={{ display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -249,6 +237,7 @@ export default function AIOpsPage() {
                 <li>✓ Single process automation</li>
                 <li>✓ Setup & configuration</li>
                 <li>✓ 30-day support</li>
+                <li>✓ Training walkthrough</li>
               </ul>
             </div>
             
@@ -277,9 +266,64 @@ export default function AIOpsPage() {
                 <li>✓ New builds included</li>
                 <li>✓ Priority support</li>
                 <li>✓ Scaling as you grow</li>
+                <li>✓ Maintenance included</li>
               </ul>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* FAQ */}
+      <div style={{ padding: '80px 20px', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px', textAlign: 'center', color: '#fff' }}>
+            Frequently Asked Questions
+          </h2>
+          <p style={{ color: '#71717a', textAlign: 'center', marginBottom: '48px' }}>
+            Everything you need to know
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {[
+              { q: 'How long does it take to build an automation?', a: 'Most automations are built in 3-7 days. Complex workflows may take 2 weeks.' },
+              { q: 'What tools do you use?', a: 'We primarily use n8n for workflow automation, combined with OpenAI for AI-powered tasks.' },
+              { q: 'Do I need technical knowledge?', a: 'No. We handle all the technical setup. You just tell us what you want to automate.' },
+              { q: 'What if something breaks?', a: 'One-off builds include 30-day support. Retainers include ongoing maintenance at no extra cost.' },
+              { q: 'Can you integrate with my existing tools?', a: 'Yes. We connect with 50+ tools including CRM, email, Slack, Google Sheets, and more.' },
+              { q: 'How does the retainer work?', a: 'Pay monthly for ongoing automation needs. Includes new builds, updates, and priority support.' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '12px',
+                padding: '24px'
+              }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>
+                  {item.q}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '14px', lineHeight: 1.6 }}>
+                  {item.a}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Trust Badges */}
+      <div style={{ padding: '40px 20px', borderTop: '1px solid #27272a', borderBottom: '1px solid #27272a' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: '32px' }}>
+          {[
+            { icon: '⚡', label: '3-7 Day Setup' },
+            { icon: '🛡️', label: '30-Day Support' },
+            { icon: '🔗', label: '50+ Integrations' },
+            { icon: '🔒', label: 'Secure & Private' },
+          ].map((item, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '20px' }}>{item.icon}</span>
+              <span style={{ color: '#a1a1aa', fontSize: '14px' }}>{item.label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -287,7 +331,7 @@ export default function AIOpsPage() {
       <div style={{ padding: '80px 20px 120px', background: 'rgba(255,255,255,0.02)', position: 'relative', zIndex: 1 }} id="contact">
         <div style={{ maxWidth: '500px', margin: '0 auto' }}>
           <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px', textAlign: 'center', color: '#fff' }}>
-            Get Your Free Audit
+            Get a Free Audit
           </h2>
           <p style={{ color: '#71717a', textAlign: 'center', marginBottom: '32px' }}>
             Tell us what you want to automate. We&apos;ll show you how.

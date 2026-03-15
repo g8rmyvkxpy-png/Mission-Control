@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -8,370 +8,265 @@ import AnimatedBackground from './components/AnimatedBackground';
 
 export const dynamic = 'force-dynamic';
 
-const agents = [
-  {
-    name: 'Neo',
-    role: 'Lead Agent',
-    icon: '🦅',
-    description: 'Searches the web every day for businesses that match your ideal client profile. It finds leads, qualifies them, and drafts personalised outreach messages — all before you wake up.',
-    delivers: ['10 qualified leads matching your niche', 'Personalised outreach message for each lead', 'Lead source and qualification reasoning'],
-    tech: 'Minimax M2.5 · Playwright RPA · Supabase',
-    status: 'Live 24/7',
-  },
-  {
-    name: 'Atlas',
-    role: 'Research Agent',
-    icon: '🗺️',
-    description: 'Handles deep research — competitor monitoring, industry news, market analysis, and document summarisation. It watches your competitors daily and flags anything that changes.',
-    delivers: ['Competitor change alerts', 'Morning industry news digest', 'Research summaries on demand'],
-    tech: 'Minimax M2.5 · Supabase',
-    status: 'Live 24/7',
-  },
-  {
-    name: 'Orbit',
-    role: 'Operations Agent',
-    icon: '🛸',
-    description: 'Runs your operational tasks — scheduling, monitoring, reporting, system health checks, and end-of-day performance summaries. It keeps everything running so nothing falls through the cracks.',
-    delivers: ['Evening performance report', 'Task completion summaries', 'System health monitoring'],
-    tech: 'Minimax M2.5 · Supabase',
-    status: 'Live 24/7',
-  },
+const benefits = [
+  { icon: '⏰', title: 'Save 10+ Hours/Week', desc: 'Automate repetitive tasks that drain your time' },
+  { icon: '💰', title: 'Cut Operational Costs', desc: 'More output without hiring more people' },
+  { icon: '🚀', title: 'Scale Faster', desc: 'Automations work 24/7 while you sleep' },
+  { icon: '🧠', title: 'Focus on High-Value Work', desc: 'Let AI handle the grunt work' },
 ];
 
-const howItWorks = [
-  { step: '1', title: 'Tell us who your ideal client is', desc: 'Your niche, your target audience, your preferences. 2 minutes.' },
-  { step: '2', title: 'We configure Neo, Atlas and Orbit', desc: 'Your agents are customized and deployed. No technical setup.' },
-  { step: '3', title: 'Wake up to leads, outreach, and reports', desc: 'From day one, your agents are working for you.' },
+const services = [
+  { icon: '📧', title: 'Email', desc: 'Auto-replies, follow-ups, summarization' },
+  { icon: '📊', title: 'Reports', desc: 'Auto-generated from your data' },
+  { icon: '🔗', title: 'Integrations', desc: 'Connect CRM, Slack, Sheets' },
+  { icon: '📅', title: 'Meetings', desc: 'Scheduling & summaries' },
 ];
 
-const testimonials = [
-  {
-    name: 'Sarah Chen',
-    role: 'Founder, CloudBooks',
-    text: "Neo found me 47 qualified leads in week one. I'd been spending 4 hours every Monday on lead research — now it just shows up in my inbox. The outreach drafts are surprisingly good.",
-    metric: 'Saved 16 hrs/week',
-  },
-  {
-    name: 'Marcus Rodriguez',
-    role: 'Agency Owner, GrowthLab',
-    text: "The competitor monitoring alone is worth the $297. Atlas flagged 3 pricing changes from competitors this month that I would've never caught. Helped me adjust my positioning fast.",
-    metric: '3 competitor moves caught',
-  },
-  {
-    name: 'Priya Sharma',
-    role: 'Solo Consultant',
-    text: "I was skeptical about AI agents, but Orbit's daily reports keep me on track. It's like having a COO who never sleeps. My task completion rate went from 60% to 94%.",
-    metric: '94% task completion',
-  },
-];
-
-const roadmap = [
-  '📧 Email sending integration',
-  '🔗 LinkedIn automation',
-  '📅 Calendar and meeting booking',
-  '🔌 CRM integration (HubSpot, Pipedrive)',
-  '🤖 More specialised agents',
+const socialProof = [
+  { metric: '24/7', label: 'Automation Running' },
+  { metric: '1000+', label: 'Tasks Automated' },
+  { metric: '50+', label: 'Integrations' },
+  { metric: '<24h', label: 'Avg. Setup Time' },
 ];
 
 export default function Home() {
-  const [email, setEmail] = useState('');
-  const [sampleName, setSampleName] = useState('');
-  const [sampleEmail, setSampleEmail] = useState('');
-  const [sampleNiche, setSampleNiche] = useState('');
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [sampleStatus, setSampleStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-
-  const handleSubscribe = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) return;
-    setStatus('loading');
-    
-    try {
-      const res = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      
-      if (res.ok) {
-        setStatus('success');
-        setEmail('');
-        setTimeout(() => setStatus('idle'), 3000);
-      } else {
-        setStatus('error');
-      }
-    } catch {
-      setStatus('error');
-    }
-  };
-
-  const handleSampleRequest = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!sampleName || !sampleEmail || !sampleNiche) return;
-    setSampleStatus('loading');
-    
-    try {
-      const res = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: sampleName,
-          email: sampleEmail,
-          message: `Free lead report request. Niche: ${sampleNiche}`,
-          service: 'sample-report',
-        }),
-      });
-      
-      if (res.ok) {
-        setSampleStatus('success');
-        setSampleName('');
-        setSampleEmail('');
-        setSampleNiche('');
-        setTimeout(() => setSampleStatus('idle'), 3000);
-      } else {
-        setSampleStatus('error');
-      }
-    } catch {
-      setSampleStatus('error');
-    }
-  };
-
   return (
-    <div style={{ minHeight: '100vh', background: '#0a0a0b', color: '#fff' }}>
+    <div style={{ minHeight: '100vh', background: '#0a0a0b', position: 'relative' }}>
       <AnimatedBackground />
       <Navbar />
       
-      {/* Hero Section */}
-      <section style={{ padding: '180px 20px 120px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <h1 style={{ fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: '800', lineHeight: 1.1, marginBottom: '24px', maxWidth: '900px', margin: '0 auto 24px' }}>
-          Your leads found. Your outreach written. Your follow-ups handled. Every single day.
+      {/* Hero */}
+      <div style={{ padding: '140px 20px 80px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ 
+          display: 'inline-block', 
+          padding: '8px 16px', 
+          background: 'rgba(16, 185, 129, 0.1)', 
+          borderRadius: '20px',
+          marginBottom: '24px',
+          border: '1px solid rgba(16, 185, 129, 0.3)'
+        }}>
+          <span style={{ color: '#10b981', fontSize: '14px', fontWeight: '600' }}>🚀 AI Automation for Businesses</span>
+        </div>
+        
+        <h1 style={{ 
+          fontSize: 'clamp(36px, 6vw, 64px)', 
+          fontWeight: '800', 
+          marginBottom: '24px',
+          background: 'linear-gradient(135deg, #fff 0%, #a1a1aa 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          lineHeight: 1.1
+        }}>
+          Automate Your Business<br/>with AI
         </h1>
-        <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#a1a1aa', maxWidth: '700px', margin: '0 auto 40px', lineHeight: 1.6 }}>
-          PPVentures deploys 3 AI agents that run your lead gen and outreach 24/7 — so you can focus on the work that actually pays. <strong style={{ color: '#10b981' }}>$297/mo</strong>. 14-day free trial.
+        
+        <p style={{ 
+          color: '#a1a1aa', 
+          fontSize: 'clamp(16px, 2vw, 20px)', 
+          maxWidth: '600px',
+          margin: '0 auto 40px',
+          lineHeight: 1.6
+        }}>
+          We build custom AI automations that save you hours every week. 
+          From email management to data workflows.
         </p>
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
-          <a href="#sample-report" style={{ padding: '16px 32px', background: '#10b981', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '700', fontSize: '16px' }}>
-            Get a Free Sample Report →
-          </a>
-          <a href="#agents" style={{ padding: '16px 32px', background: 'transparent', border: '2px solid #3f3f46', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '600', fontSize: '16px' }}>
-            See what the agents do ↓
-          </a>
-        </div>
-        <p style={{ color: '#6b7280', fontSize: '14px' }}>
-          No credit card required · Cancel anytime · Live in under 5 minutes
-        </p>
-      </section>
 
-      {/* Pain Points */}
-      <section style={{ padding: '80px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: '700', marginBottom: '48px', textAlign: 'center' }}>Sound familiar?</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px', maxWidth: '900px', margin: '0 auto' }}>
-          {[
-            "You spend Monday morning finding leads instead of serving clients.",
-            "Warm prospects go cold because you forgot to follow up on Thursday.",
-            "You're doing $20/hr admin when you should be doing $200/hr strategy.",
-          ].map((point, i) => (
-            <div key={i} style={{ background: '#1a1a1d', borderRadius: '16px', padding: '32px', border: '1px solid #27272a' }}>
-              <p style={{ fontSize: '18px', color: '#d4d4d8', lineHeight: 1.5 }}>{point}</p>
-            </div>
-          ))}
-        </div>
-        <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '20px', color: '#fff', fontWeight: '600' }}>You didn't start a business to work 60-hour weeks.</p>
-      </section>
-
-      {/* Meet Your 3 Agents */}
-      <section id="agents" style={{ padding: '100px 20px', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 40px)', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>
-          Three AI agents. Working for you. Right now.
-        </h2>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', maxWidth: '800px', margin: '0 auto' }}>
-          {agents.map((agent, i) => (
-            <div key={i} style={{ background: '#1a1a1d', borderRadius: '20px', padding: '40px', border: '1px solid #27272a', position: 'relative' }}>
-              <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#10b981' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }}></span>
-                {agent.status}
-              </div>
-              <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', marginBottom: '20px' }}>
-                <div style={{ fontSize: '48px' }}>{agent.icon}</div>
-                <div>
-                  <h3 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '4px' }}>{agent.name} — {agent.role}</h3>
-                  <p style={{ color: '#a1a1aa', fontSize: '16px', lineHeight: 1.6 }}>{agent.description}</p>
-                </div>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <p style={{ color: '#fff', fontWeight: '600', marginBottom: '8px' }}>What {agent.name} delivers daily:</p>
-                <ul style={{ margin: 0, paddingLeft: '20px', color: '#a1a1aa' }}>
-                  {agent.delivers.map((item, j) => (
-                    <li key={j} style={{ marginBottom: '4px' }}>• {item}</li>
-                  ))}
-                </ul>
-              </div>
-              <p style={{ color: '#6b7280', fontSize: '14px' }}>Tech: {agent.tech}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section style={{ padding: '80px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '48px', textAlign: 'center' }}>Live in 5 minutes. Not an exaggeration.</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '32px', maxWidth: '900px', margin: '0 auto' }}>
-          {howItWorks.map((item, i) => (
-            <div key={i} style={{ textAlign: 'center' }}>
-              <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#10b981', color: '#fff', fontSize: '20px', fontWeight: '700', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                {item.step}
-              </div>
-              <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px' }}>{item.title}</h3>
-              <p style={{ color: '#a1a1aa', fontSize: '14px' }}>{item.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Social Proof / Testimonials */}
-      <section style={{ padding: '100px 20px', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>Real results from early adopters</h2>
-        <p style={{ color: '#a1a1aa', fontSize: '16px', marginBottom: '48px', textAlign: 'center' }}>Join 50+ businesses already using PPVentures agents</p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', maxWidth: '1000px', margin: '0 auto' }}>
-          {testimonials.map((t, i) => (
-            <div key={i} style={{ background: '#1a1a1d', borderRadius: '16px', padding: '32px', border: '1px solid #27272a' }}>
-              <p style={{ fontSize: '16px', color: '#d4d4d8', lineHeight: 1.6, marginBottom: '24px', fontStyle: 'italic' }}>"{t.text}"</p>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <p style={{ fontWeight: '600', color: '#fff', marginBottom: '4px' }}>{t.name}</p>
-                  <p style={{ fontSize: '14px', color: '#6b7280' }}>{t.role}</p>
-                </div>
-                <div style={{ background: '#10b98120', padding: '8px 12px', borderRadius: '8px' }}>
-                  <p style={{ fontSize: '14px', color: '#10b981', fontWeight: '600' }}>{t.metric}</p>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section style={{ padding: '100px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>Questions? We have answers.</h2>
-        <p style={{ color: '#a1a1aa', fontSize: '16px', marginBottom: '48px', textAlign: 'center' }}>Everything you need to know before getting started.</p>
-        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {[
-            { q: "Is this actually a real product? Can't I just use ChatGPT?", a: "You could — but you'd spend hours configuring prompts, managing APIs, and building the automation yourself. We give you working agents that run on cron, generate real leads, and integrate with your workflow. Setup takes 5 minutes, not weeks." },
-            { q: "What if the leads aren't good quality?", a: "Neo searches based on YOUR criteria — company size, industry, funding stage, job postings, news. You define what 'qualified' means. We also provide the reasoning for every lead so you can validate the quality yourself." },
-            { q: "Is this just a fancy email sender?", a: "No. Neo researches each lead individually — checks their recent content, company updates, and market position before writing. The outreach is genuinely personalized, not a template with a name swap." },
-            { q: "What if I need to cancel?", a: "Cancel anytime from your dashboard. No contracts, no hidden fees. We're confident you'll stay because the leads actually work — but we don't lock you in." },
-            { q: "How is this different from hiring a VA?", a: "A VA costs $500-2000/month and can only work 8 hours a day. Our agents cost $297/month, work 24/7, never take sick days, and can research 100 companies in the time it takes a VA to drink coffee. Plus, they learn from every interaction." },
-            { q: "Do I need technical skills to use this?", a: "Zero. You fill out a 2-minute form describing your ideal customer. We configure everything. You wake up to leads. That's it." },
-          ].map((faq, i) => (
-            <details key={i} style={{ background: '#1a1a1d', borderRadius: '12px', border: '1px solid #27272a', overflow: 'hidden' }}>
-              <summary style={{ padding: '20px 24px', cursor: 'pointer', fontWeight: '600', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', listStyle: 'none' }}>
-                {faq.q}
-                <span style={{ color: '#10b981', fontSize: '20px' }}>＋</span>
-              </summary>
-              <div style={{ padding: '0 24px 20px', color: '#a1a1aa', lineHeight: 1.6 }}>
-                {faq.a}
-              </div>
-            </details>
-          ))}
-        </div>
-      </section>
-
-      {/* Free Sample Report CTA */}
-      <section id="sample-report" style={{ padding: '100px 20px', position: 'relative', zIndex: 1 }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: '700', marginBottom: '16px' }}>See it work before you sign up.</h2>
-          <p style={{ color: '#a1a1aa', fontSize: '16px', marginBottom: '32px' }}>
-            Tell us your niche. Neo will find 10 leads for you — free. Delivered to your inbox within 24 hours. No account needed.
-          </p>
-          
-          {sampleStatus === 'success' ? (
-            <div style={{ background: '#10b98120', border: '1px solid #10b981', borderRadius: '12px', padding: '24px' }}>
-              <p style={{ color: '#10b981', fontSize: '18px', fontWeight: '600' }}>✓ You're in! Check your inbox for your lead report.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSampleRequest} style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '6px', color: '#fff' }}>Your name</label>
-                <input type="text" value={sampleName} onChange={(e) => setSampleName(e.target.value)} required placeholder="John Doe" style={{ width: '100%', padding: '14px 16px', background: '#1a1a1d', border: '1px solid #27272a', borderRadius: '8px', color: '#fff', fontSize: '16px' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '6px', color: '#fff' }}>Email address</label>
-                <input type="email" value={sampleEmail} onChange={(e) => setSampleEmail(e.target.value)} required placeholder="john@company.com" style={{ width: '100%', padding: '14px 16px', background: '#1a1a1d', border: '1px solid #27272a', borderRadius: '8px', color: '#fff', fontSize: '16px' }} />
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: '500', marginBottom: '6px', color: 'white' }}>Your niche / target client</label>
-                <textarea value={sampleNiche} onChange={(e) => setSampleNiche(e.target.value)} required placeholder="e.g. I'm a freelance web developer targeting local restaurants that need websites" rows={3} style={{ width: '100%', padding: '14px 16px', background: '#1a1a1d', border: '1px solid #27272a', borderRadius: '8px', color: '#fff', fontSize: '16px', resize: 'vertical' }} />
-              </div>
-              <button type="submit" disabled={sampleStatus === 'loading'} style={{ padding: '16px 24px', background: '#10b981', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: '700', fontSize: '16px', cursor: 'pointer', opacity: sampleStatus === 'loading' ? 0.7 : 1 }}>
-                {sampleStatus === 'loading' ? 'Sending...' : 'Get My Free Lead Report →'}
-              </button>
-              <p style={{ color: '#6b7280', fontSize: '13px', textAlign: 'center' }}>No credit card. No account. Just proof that it works.</p>
-            </form>
-          )}
-        </div>
-      </section>
-
-      {/* Pricing Preview */}
-      <section style={{ padding: '80px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 'clamp(28px, 4vw, 36px)', fontWeight: '700', marginBottom: '16px' }}>One plan. Everything included.</h2>
-          <p style={{ color: '#10b981', fontSize: '48px', fontWeight: '800', marginBottom: '8px' }}>$297<span style={{ fontSize: '20px', fontWeight: '400' }}>/month</span></p>
-          <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>After a free 14-day trial. Cancel anytime.</p>
-          
-          <div style={{ background: '#1a1a1d', borderRadius: '16px', padding: '32px', border: '1px solid #27272a', textAlign: 'left', marginBottom: '24px' }}>
-            {[
-              'Neo: 10 qualified leads daily + outreach drafts',
-              'Atlas: Competitor monitoring + industry news',
-              'Orbit: Daily reports + task tracking',
-              'Live dashboard — see agents in real time',
-              'Email support',
-            ].map((item, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 0', borderBottom: i < 4 ? '1px solid #27272a' : 'none' }}>
-                <span style={{ color: '#10b981' }}>✓</span>
-                <span style={{ color: '#d4d4d8' }}>{item}</span>
-              </div>
-            ))}
-          </div>
-          
-          <a href="/pricing" style={{ display: 'inline-block', padding: '16px 32px', background: '#10b981', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '700', fontSize: '16px', marginBottom: '16px' }}>
-            Start Free Trial →
-          </a>
-          <p style={{ color: '#6b7280', fontSize: '13px' }}>Prices in USD. No setup fee. No contracts.</p>
-        </div>
-      </section>
-
-      {/* Honest Roadmap */}
-      <section style={{ padding: '80px 20px', position: 'relative', zIndex: 1 }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: '700', marginBottom: '16px' }}>What we're building next.</h2>
-          <p style={{ color: '#a1a1aa', marginBottom: '32px' }}>We believe in showing you what's real and what's coming.</p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '32px' }}>
-            {roadmap.map((item, i) => (
-              <div key={i} style={{ background: '#1a1a1d', borderRadius: '8px', padding: '14px 20px', border: '1px solid #27272a', color: '#a1a1aa', fontSize: '15px' }}>
-                {item}
-              </div>
-            ))}
-          </div>
-          
-          <p style={{ color: '#6b7280', fontSize: '14px' }}>
-            Want to influence what we build next? <a href="/contact" style={{ color: '#10b981' }}>Tell us →</a>
-          </p>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section style={{ padding: '80px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1, textAlign: 'center' }}>
-        <h2 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: '700', marginBottom: '24px' }}>Your competitors are already automating. Let's get you caught up.</h2>
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <a href="/pricing" style={{ padding: '16px 32px', background: '#10b981', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '700', fontSize: '16px' }}>
-            Start Free Trial — $297/mo
-          </a>
-          <a href="#sample-report" style={{ padding: '16px 32px', background: 'transparent', border: '2px solid #3f3f46', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '600', fontSize: '16px' }}>
-            Get a Free Sample Report First
+          <Link href="/ai-ops#contact" style={{
+            padding: '16px 32px',
+            background: '#10b981',
+            color: '#fff',
+            borderRadius: '12px',
+            fontWeight: '700',
+            fontSize: '16px',
+            textDecoration: 'none',
+          }}>
+            Get Started →
+          </Link>
+          <a href="/ai-ops#how-it-works" style={{
+            padding: '16px 32px',
+            background: 'rgba(255,255,255,0.05)',
+            color: '#fff',
+            borderRadius: '12px',
+            fontWeight: '600',
+            fontSize: '16px',
+            textDecoration: 'none',
+            border: '1px solid rgba(255,255,255,0.1)'
+          }}>
+            How It Works
           </a>
         </div>
-      </section>
+      </div>
+
+      {/* Social Proof */}
+      <div style={{ padding: '40px 20px', borderTop: '1px solid #27272a', borderBottom: '1px solid #27272a' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: '32px' }}>
+          {socialProof.map((item, i) => (
+            <div key={i} style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '32px', fontWeight: '800', color: '#10b981' }}>{item.metric}</div>
+              <div style={{ fontSize: '14px', color: '#71717a' }}>{item.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Benefits */}
+      <div style={{ padding: '80px 20px', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '48px', textAlign: 'center', color: '#fff' }}>
+            Why Automate?
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '24px' }}>
+            {benefits.map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '28px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '40px', marginBottom: '16px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>
+                  {item.title}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '14px' }}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Who We Work With */}
+      <div style={{ padding: '80px 20px', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '48px', textAlign: 'center', color: '#fff' }}>
+            Who We Work With
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+            {[
+              { icon: '💼', title: 'Consultants', desc: 'Automate client follow-ups, scheduling, and reporting' },
+              { icon: '🏢', title: 'Agencies', desc: 'Streamline project workflows and team communications' },
+              { icon: '🩺', title: 'Healthcare', desc: 'Patient communications and appointment scheduling' },
+              { icon: '🏠', title: 'Real Estate', desc: 'Lead capture and property management automation' },
+              { icon: '🛒', title: 'E-commerce', desc: 'Order processing and customer support automation' },
+              { icon: '📚', title: 'Professional Services', desc: 'Billing, documentation, and client management' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '24px'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#fff', marginBottom: '8px' }}>
+                  {item.title}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '13px' }}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Services Overview */}
+      <div style={{ padding: '80px 20px', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px', textAlign: 'center', color: '#fff' }}>
+            What We Automate
+          </h2>
+          <p style={{ color: '#71717a', textAlign: 'center', marginBottom: '48px' }}>
+            From simple tasks to complex workflows
+          </p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '20px' }}>
+            {services.map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '12px',
+                padding: '24px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '16px', fontWeight: '600', color: '#fff' }}>
+                  {item.title}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '13px', marginTop: '4px' }}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
+          
+          <div style={{ textAlign: 'center', marginTop: '32px' }}>
+            <Link href="/ai-ops" style={{ color: '#10b981', textDecoration: 'underline', fontSize: '16px' }}>
+              View all services & pricing →
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* How It Works - Brief */}
+      <div style={{ padding: '80px 20px', background: 'rgba(255,255,255,0.02)', position: 'relative', zIndex: 1 }} id="how-it-works">
+        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '40px', textAlign: 'center', color: '#fff' }}>
+            How It Works
+          </h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {[
+              { step: '1', title: 'Tell us what to automate', desc: 'Share the tasks that eat your time' },
+              { step: '2', title: 'We build it in 3-7 days', desc: 'Custom n8n automation' },
+              { step: '3', title: 'You save hours every week', desc: 'Wake up to completed work' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ 
+                  width: '40px', height: '40px', 
+                  background: '#10b981', 
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: '700', fontSize: '14px',
+                  flexShrink: 0
+                }}>
+                  {item.step}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#fff' }}>
+                    {item.title}
+                  </h3>
+                  <p style={{ color: '#a1a1aa', fontSize: '14px' }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* CTA */}
+      <div style={{ padding: '80px 20px 120px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px' }}>
+          Ready to Save Time?
+        </h2>
+        <p style={{ color: '#a1a1aa', marginBottom: '32px' }}>
+          Get a free audit. See what we can automate for you.
+        </p>
+        <Link href="/ai-ops#contact" style={{
+          display: 'inline-block',
+          padding: '16px 32px',
+          background: '#10b981',
+          color: '#fff',
+          borderRadius: '12px',
+          fontWeight: '700',
+          fontSize: '16px',
+          textDecoration: 'none',
+        }}>
+          Get Free Audit →
+        </Link>
+      </div>
 
       <Footer />
     </div>

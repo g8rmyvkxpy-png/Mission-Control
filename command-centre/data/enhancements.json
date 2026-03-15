@@ -5060,7 +5060,7 @@
     "file_path": "app/ai-agents/page.tsx",
     "issue": "The last agent \"trends\" has incomplete data - the `soul` field is truncated: \"The future belongs to thos\" (should be a complete sentence)",
     "improvement": "Change line ~27 from: `soul: 'The future belongs to thos` to: `soul: 'The future belongs to those who see it first.'`",
-    "status": "queued",
+    "status": "in_progress",
     "agent_id": null,
     "priority": "high",
     "impact": "high",

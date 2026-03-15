@@ -6,34 +6,37 @@ import AnimatedBackground from '../components/AnimatedBackground';
 
 export const metadata: Metadata = {
   title: 'About | PPVentures',
-  description: 'Built by founders who understand the pain of manual lead generation. Learn why we built PPVentures.',
+  description: 'Learn how PPVentures helps businesses automate with AI. We build custom automations that save you hours every week.',
 };
 
 const values = [
   {
-    title: 'Show real outputs, not mockups',
-    description: 'We screenshot everything. If our agents found 10 leads, we show you 10 real leads. No exaggerated claims.',
+    icon: '🎯',
+    title: 'Outcome-First',
+    description: 'We measure success by hours saved, not features built. Every automation delivers tangible time savings.',
   },
   {
-    title: 'Admit what does not work yet',
-    description: 'Email sending is coming soon. LinkedIn automation is on the roadmap. We would not launch if we pretended otherwise.',
+    icon: '🔧',
+    title: 'Build What Works',
+    description: 'We use n8n, OpenAI, and proven tools. No overengineering — just reliable automation that actually runs.',
   },
   {
-    title: 'Build what customers need',
-    description: 'We talk to every user. Every feature ships because someone asked for it. Not because it sounds impressive.',
+    icon: '📋',
+    title: 'Transparent Pricing',
+    description: 'No hidden fees. No surprise charges. What you see is what you pay.',
   },
   {
-    title: 'One product, done well',
-    description: 'Three agents, one price, $297/month. We are not trying to be everything to everyone.',
+    icon: '🤝',
+    title: 'Long-Term Partnership',
+    description: 'Retainers include ongoing maintenance. We succeed when your automation keeps working.',
   },
 ];
 
-const timeline = [
-  { year: '2024', milestone: 'PPVentures founded. Started exploring AI agent frameworks.' },
-  { year: 'Early 2025', milestone: 'First experiments with autonomous agent workflows.' },
-  { year: 'Mid 2025', milestone: 'Built the Command Centre dashboard to manage agents.' },
-  { year: 'Late 2025', milestone: 'Deployed Neo, Atlas and Orbit — 3 agents running 24/7.' },
-  { year: 'Early 2026', milestone: 'Launched Automation Suite for solo consultants and agencies.' },
+const capabilities = [
+  { icon: '⏱️', title: 'Save 10+ Hours/Week', desc: 'Automate repetitive tasks that drain your time' },
+  { icon: '🔗', title: 'Connect Any Tool', desc: 'CRM, email, Slack, spreadsheets — we integrate them all' },
+  { icon: '🧠', title: 'AI-Powered', desc: 'Not just rules — intelligent workflows that learn' },
+  { icon: '🚀', title: 'Deploy in Days', desc: 'From conversation to working automation in 3-7 days' },
 ];
 
 export default function AboutPage() {
@@ -45,58 +48,90 @@ export default function AboutPage() {
       {/* Hero */}
       <section style={{ padding: '160px 20px 80px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
         <h1 style={{ fontSize: 'clamp(32px, 5vw, 48px)', fontWeight: '700', marginBottom: '16px' }}>
-          Built by founders. Powered by AI. Run transparently.
+          We Automate Your Business<br/>So You Can Focus on Growth
         </h1>
         <p style={{ fontSize: 'clamp(16px, 2vw, 20px)', color: '#a1a1aa', maxWidth: '600px', margin: '0 auto', lineHeight: 1.6 }}>
-          We are the target customer. That is why this product exists.
+          Custom AI automations built for businesses that want to scale without hiring more people.
         </p>
       </section>
 
-      {/* The Story */}
-      <section style={{ padding: '40px 20px', position: 'relative', zIndex: 1 }}>
+      {/* Why We Exist */}
+      <section style={{ padding: '60px 20px', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px' }}>The Story</h2>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px' }}>Why We Exist</h2>
           <div style={{ color: '#a1a1aa', lineHeight: 1.8, fontSize: '16px' }}>
             <p style={{ marginBottom: '20px' }}>
-              PPVentures started because I was the target customer. I was running a consulting business, spending half my week on lead gen, follow-ups, and admin instead of the work I was actually good at.
+              Every business owner faces the same problem: repetitive tasks that eat up hours but don't move the needle. Data entry. Follow-up emails. Report generation. Meeting scheduling.
             </p>
             <p style={{ marginBottom: '20px' }}>
-              I built Neo to find my own leads. Then Atlas to watch my competitors. Then Orbit to keep track of everything. When the agents started saving me 10+ hours a week, I realised other consultants and freelancers needed this too.
+              Hiring for these tasks is expensive. Doing them yourself is a waste of your most valuable resource — time.
             </p>
             <p style={{ marginBottom: '20px' }}>
-              PPVentures is now those same three agents — packaged, productised, and available for $297/month. The agents that run your business are the same ones that run mine.
+              We built PPVentures to solve this. We create custom AI automations that handle the grunt work so you can focus on what actually grows your business.
             </p>
             <p>
-              I am the founder and sole engineer behind PPVentures. No VC funding. No marketing team. Just a product I use every day, and a belief that every consultant deserves an AI team.
+              Whether you're a solo consultant or a growing agency, we build automations that fit your workflow — not the other way around.
             </p>
           </div>
         </div>
       </section>
 
-      {/* How We Build */}
+      {/* What We Do */}
       <section style={{ padding: '60px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px' }}>How We Build</h2>
-          <p style={{ color: '#a1a1aa', lineHeight: 1.8, fontSize: '16px', marginBottom: '20px' }}>
-            We build in public. Every week we share what we shipped, what broke, and what is coming next on our blog. We chose Minimax M2.5 because it gives the best results for our specific tasks at a sustainable cost. We use Supabase because it is fast, reliable, and open source. We use Playwright for web scraping because it handles real-world websites better than any other tool.
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>What We Do</h2>
+          <p style={{ color: '#a1a1aa', textAlign: 'center', marginBottom: '48px' }}>
+            We build custom automations that fit your business
           </p>
-          <p style={{ color: '#a1a1aa', lineHeight: 1.8, fontSize: '16px' }}>
-            We are a small team. We move fast. We ship honest products.
-          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '24px' }}>
+            {capabilities.map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '28px',
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '36px', marginBottom: '16px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>
+                  {item.title}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '14px' }}>
+                  {item.desc}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* Timeline */}
+      {/* How It Works */}
       <section style={{ padding: '60px 20px', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px' }}>The Journey</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-            {timeline.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: '24px', paddingBottom: i < timeline.length - 1 ? '24px' : 0, borderLeft: i < timeline.length - 1 ? '2px solid #27272a' : 'none', paddingLeft: '24px', marginLeft: '12px' }}>
-                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: '#10b981', marginTop: '6px', flexShrink: 0, marginLeft: '-31px' }}></div>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px' }}>How We Work</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+            {[
+              { step: '01', title: 'Discovery Call', desc: 'We learn about your business, identify time-draining tasks, and understand your goals.' },
+              { step: '02', title: 'Custom Build', desc: 'We build a tailored automation using n8n and AI. Most builds take 3-7 days.' },
+              { step: '03', title: 'Hand-off & Support', desc: 'You get a working automation with 30-day support. Retainers include ongoing maintenance.' },
+            ].map((item, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '24px' }}>
+                <div style={{ 
+                  width: '48px', height: '48px', 
+                  background: '#10b981', 
+                  borderRadius: '50%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontWeight: '700', fontSize: '14px',
+                  flexShrink: 0
+                }}>
+                  {item.step}
+                </div>
                 <div>
-                  <p style={{ color: '#10b981', fontWeight: '600', marginBottom: '4px' }}>{item.year}</p>
-                  <p style={{ color: '#a1a1aa' }}>{item.milestone}</p>
+                  <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '4px', color: '#fff' }}>
+                    {item.title}
+                  </h3>
+                  <p style={{ color: '#a1a1aa' }}>{item.desc}</p>
                 </div>
               </div>
             ))}
@@ -106,13 +141,26 @@ export default function AboutPage() {
 
       {/* Values */}
       <section style={{ padding: '60px 20px', background: '#0d0d0f', position: 'relative', zIndex: 1 }}>
-        <div style={{ maxWidth: '700px', margin: '0 auto' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '32px' }}>Our Values</h2>
-          <div style={{ display: 'grid', gap: '20px' }}>
-            {values.map((value, i) => (
-              <div key={i} style={{ background: '#1a1a1d', borderRadius: '12px', padding: '24px', border: '1px solid #27272a' }}>
-                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>{value.title}</h3>
-                <p style={{ color: '#a1a1aa', margin: 0 }}>{value.description}</p>
+        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '16px', textAlign: 'center' }}>How We Work</h2>
+          <p style={{ color: '#a1a1aa', textAlign: 'center', marginBottom: '48px' }}>
+            Our principles guide every automation we build
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
+            {values.map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '28px'
+              }}>
+                <div style={{ fontSize: '32px', marginBottom: '16px' }}>{item.icon}</div>
+                <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>
+                  {item.title}
+                </h3>
+                <p style={{ color: '#a1a1aa', fontSize: '14px', lineHeight: 1.6 }}>
+                  {item.description}
+                </p>
               </div>
             ))}
           </div>
@@ -121,15 +169,24 @@ export default function AboutPage() {
 
       {/* CTA */}
       <section style={{ padding: '80px 20px', textAlign: 'center', position: 'relative', zIndex: 1 }}>
-        <h2 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px' }}>Ready to try it?</h2>
-        <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link href="/pricing" style={{ padding: '16px 32px', background: '#10b981', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '700', fontSize: '16px' }}>
-            Start Free Trial
-          </Link>
-          <Link href="/blog" style={{ padding: '16px 32px', background: 'transparent', border: '2px solid #3f3f46', borderRadius: '10px', color: '#fff', textDecoration: 'none', fontWeight: '600', fontSize: '16px' }}>
-            Read Our Build Log
-          </Link>
-        </div>
+        <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '16px' }}>
+          Ready to Automate?
+        </h2>
+        <p style={{ color: '#a1a1aa', marginBottom: '32px' }}>
+          Get a free audit. Tell us what you want to automate.
+        </p>
+        <Link href="/ai-ops#contact" style={{
+          display: 'inline-block',
+          padding: '16px 32px',
+          background: '#10b981',
+          color: '#fff',
+          borderRadius: '12px',
+          fontWeight: '700',
+          fontSize: '16px',
+          textDecoration: 'none',
+        }}>
+          Get Free Audit →
+        </Link>
       </section>
 
       <Footer />
