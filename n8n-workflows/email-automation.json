@@ -1,0 +1,343 @@
+{
+  "name": "Email Automation Suite",
+  "nodes": [
+    {
+      "parameters": {
+        "mailbox": "{{$json.mailbox}}",
+        "postProcessAction": "mark_read"
+      },
+      "id": "gmail-trigger",
+      "name": "Gmail: Watch Inbox",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "credentials": {
+        "gmailOAuth2": "gmail-account"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "{{$json.subject}}",
+              "operation": "contains",
+              "value2": "quote"
+            },
+            {
+              "value1": "{{$json.subject}}",
+              "operation": "contains",
+              "value2": "pricing"
+            },
+            {
+              "value1": "{{$json.subject}}",
+              "operation": "contains",
+              "value2": "demo"
+            },
+            {
+              "value1": "{{$json.subject}}",
+              "operation": "contains",
+              "value2": "inquiry"
+            }
+          ],
+          "logical": "OR"
+        }
+      },
+      "id": "categorize-emails",
+      "name": "Categorize: Lead vs Other",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "category",
+              "name": "category",
+              "value": "lead",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "mark-lead",
+      "name": "Mark as Lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [650, 200]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "category",
+              "name": "category",
+              "value": "other",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "id": "mark-other",
+      "name": "Mark as Other",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [650, 400]
+    },
+    {
+      "parameters": {
+        "tableName": "leads",
+        "columns": {
+          "columnValues": [
+            {
+              "columnName": "email",
+              "columnValue": "{{$json.from}}"
+            },
+            {
+              "columnName": "subject",
+              "columnValue": "{{$json.subject}}"
+            },
+            {
+              "columnName": "body",
+              "columnValue": "{{$json.textBody}}"
+            },
+            {
+              "columnName": "category",
+              "columnValue": "{{$json.category}}"
+            },
+            {
+              "columnName": "source",
+              "columnValue": "email"
+            },
+            {
+              "columnName": "status",
+              "columnValue": "new"
+            },
+            {
+              "columnName": "created_at",
+              "columnValue": "{{$now}}"
+            }
+          ]
+        }
+      },
+      "id": "save-to-crm",
+      "name": "Save to CRM (Supabase)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 200],
+      "credentials": {
+        "supabaseApi": "supabase-account"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "subject": "Re: {{$json.subject}}",
+        "to": "{{$json.from}}",
+        "body": "Hi there,\n\nThanks for reaching out! I've received your message and will get back to you within 24 hours.\n\nIn the meantime, feel free to check out our services at ppventures.tech\n\nBest,\nThe PPVentures Team"
+      },
+      "id": "auto-reply-lead",
+      "name": "Auto-Reply: New Lead",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 3,
+      "position": [850, 350],
+      "credentials": {
+        "gmailOAuth2": "gmail-account"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "subject": "Re: {{$json.subject}}",
+        "to": "{{$json.from}}",
+        "body": "Thanks for your email! I'll review this and get back to you soon."
+      },
+      "id": "auto-reply-other",
+      "name": "Auto-Reply: General",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 3,
+      "position": [850, 500],
+      "credentials": {
+        "gmailOAuth2": "gmail-account"
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 24
+            }
+          ]
+        }
+      },
+      "id": "daily-digest-trigger",
+      "name": "Daily Digest Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 700]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM leads WHERE created_at > NOW() - INTERVAL '24 hours' AND status = 'new'"
+      },
+      "id": "fetch-new-leads",
+      "name": "Fetch New Leads (24h)",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [450, 700],
+      "credentials": {
+        "supabaseApi": "supabase-account"
+      }
+    },
+    {
+      "parameters": {
+        "subject": "📊 Your Daily Email Automation Report",
+        "to": "{{$json.notify_email}}",
+        "body": "<h2>Daily Report</h2>\n<p><strong>New Leads:</strong> {{$json.new_leads_count}}</p>\n<p><strong>Emails Processed:</strong> {{$json.emails_processed}}</p>\n\n<h3>New Leads:</h3>\n{{$json.leads_list}}\n\n<p>View all leads: <a href=\"{{$json.crm_url}}\">{{$json.crm_url}}</a></p>"
+      },
+      "id": "send-digest",
+      "name": "Send Daily Digest",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 3,
+      "position": [650, 700],
+      "credentials": {
+        "gmailOAuth2": "gmail-account"
+      }
+    },
+    {
+      "parameters": {
+        "resource": "email",
+        "subject": "Following up: {{$json.subject}}",
+        "to": "{{$json.from}}",
+        "body": "Hi,\n\nJust following up on your earlier email. Are you still interested in learning more?\n\nBest"
+      },
+      "id": "follow-up-3d",
+      "name": "Follow-up (3 days)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 3,
+      "position": [1050, 200],
+      "credentials": {
+        "gmailOAuth2": "gmail-account"
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM leads WHERE status = 'new' AND created_at < NOW() - INTERVAL '3 days'"
+      },
+      "id": "fetch-followups",
+      "name": "Fetch Leads Needing Follow-up",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [850, 700],
+      "credentials": {
+        "supabaseApi": "supabase-account"
+      }
+    }
+  ],
+  "connections": {
+    "Gmail: Watch Inbox": {
+      "main": [
+        [
+          {
+            "node": "Categorize: Lead vs Other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Categorize: Lead vs Other": {
+      "main": [
+        [
+          {
+            "node": "Mark as Lead",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mark as Other",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Lead": {
+      "main": [
+        [
+          {
+            "node": "Save to CRM (Supabase)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Auto-Reply: New Lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mark as Other": {
+      "main": [
+        [
+          {
+            "node": "Auto-Reply: General",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Digest Trigger": {
+      "main": [
+        [
+          {
+            "node": "Fetch New Leads (24h)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch New Leads (24h)": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Leads Needing Follow-up": {
+      "main": [
+        [
+          {
+            "node": "Follow-up (3 days)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": ["email", "automation", "crm"],
+  "triggerCount": 2,
+  "updatedAt": "2026-03-16T07:15:00.000Z",
+  "versionId": "1"
+}

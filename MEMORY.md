@@ -31,6 +31,15 @@
 - Personality system wired into agent execution
 - Memory flush configured for 40K token reserve
 ## Recent Key Decisions
+- [2026-03-16] ### Email Automation Product Built
+  - Built /email-automation landing page with pricing ($197/$297/$497)
+  - Created /products page showing all products
+  - Built n8n workflow in /n8n-workflows/
+  - Created Supabase schema (needs API key to run)
+  - Started n8n server at localhost:5678
+  - Published blog post: "How to Automate Your Inbox"
+  - Created sales pipeline in /marketing/sales-pipeline.md
+  - Website live at localhost:8080
 - [2026-03-14] ### Revenue & Task Priorities Implemented
   - Created REVENUE_SCHEMA.sql with revenue_entries, pipeline, milestones tables
   - Enhanced tasks table with priority_score (P0-P3) and due_date

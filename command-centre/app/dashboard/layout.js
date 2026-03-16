@@ -50,6 +50,7 @@ export default function DashboardLayout({ children }) {
 
   // Secondary tabs (accessible via More)
   const moreTabs = [
+    { id: 'analytics', label: 'Analytics', icon: '📊', href: '/dashboard/analytics' },
     { id: 'revenue', label: 'Revenue', icon: '💰', href: '/dashboard/revenue' },
     { id: 'knowledge', label: 'Knowledge', icon: '🧠', href: '/dashboard/knowledge' },
     { id: 'office', label: 'Office', icon: '🏢', href: '/dashboard/office' },

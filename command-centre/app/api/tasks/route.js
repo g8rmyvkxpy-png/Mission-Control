@@ -76,7 +76,7 @@ export async function POST(request) {
         task_type,
         implementation_details,
         due_date,
-        tags: tags || []
+        
       })
       .select()
       .single();
@@ -113,7 +113,7 @@ export async function PUT(request) {
     if (task_type) updateData.task_type = task_type;
     if (implementation_details) updateData.implementation_details = implementation_details;
     if (due_date !== undefined) updateData.due_date = due_date;
-    if (tags) updateData.tags = tags;
+    
     
     if (priority) {
       const priorityMap = { P0: 0, P1: 1, P2: 2, P3: 3 };

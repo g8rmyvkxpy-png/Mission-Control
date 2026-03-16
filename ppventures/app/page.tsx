@@ -29,6 +29,27 @@ const socialProof = [
   { metric: '<24h', label: 'Avg. Setup Time' },
 ];
 
+const testimonials = [
+  {
+    quote: "Our lead response time dropped from 4 hours to 2 minutes. We've captured an estimated $30K in additional revenue this quarter alone.",
+    author: "Rahul Mehta",
+    role: "Founder, TechStart Consulting",
+    rating: 5
+  },
+  {
+    quote: "The email automation alone saves our team 15 hours every week. What used to be manual follow-ups now happens on autopilot.",
+    author: "Priya Sharma",
+    role: "Operations Director, GrowthLab Agency",
+    rating: 5
+  },
+  {
+    quote: "We were skeptical about AI automation, but PPVentures delivered in 5 days what our internal team couldn't do in 2 months.",
+    author: "Arjun Patel",
+    role: "CEO, CloudNine Real Estate",
+    rating: 5
+  },
+];
+
 export default function Home() {
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0b', position: 'relative' }}>
@@ -239,6 +260,38 @@ export default function Home() {
                     {item.title}
                   </h3>
                   <p style={{ color: '#a1a1aa', fontSize: '14px' }}>{item.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Testimonials */}
+      <div style={{ padding: '80px 20px', background: 'rgba(255,255,255,0.02)' }}>
+        <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '32px', fontWeight: '700', marginBottom: '48px', textAlign: 'center', color: '#fff' }}>
+            What Our Clients Say
+          </h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
+            {testimonials.map((item, i) => (
+              <div key={i} style={{
+                background: 'rgba(255,255,255,0.03)',
+                border: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '16px',
+                padding: '28px'
+              }}>
+                <div style={{ display: 'flex', gap: '4px', marginBottom: '16px' }}>
+                  {[...Array(item.rating)].map((_, j) => (
+                    <span key={j} style={{ color: '#fbbf24', fontSize: '18px' }}>★</span>
+                  ))}
+                </div>
+                <p style={{ color: '#e4e4e7', fontSize: '15px', lineHeight: 1.7, marginBottom: '20px', fontStyle: 'italic' }}>
+                  "{item.quote}"
+                </p>
+                <div>
+                  <div style={{ fontWeight: '600', color: '#fff', fontSize: '15px' }}>{item.author}</div>
+                  <div style={{ color: '#71717a', fontSize: '13px' }}>{item.role}</div>
                 </div>
               </div>
             ))}

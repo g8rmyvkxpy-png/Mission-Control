@@ -10,7 +10,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '/ai-ops', label: 'AI Ops' },
+    { href: '/products', label: 'Products' },
+    { href: '/ai-ops', label: 'Services' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
     { href: '/contact', label: 'Contact' },
