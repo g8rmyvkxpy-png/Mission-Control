@@ -14,6 +14,7 @@ export default function Navbar() {
     { href: '/ai-ops', label: 'Services' },
     { href: '/about', label: 'About' },
     { href: '/blog', label: 'Blog' },
+    { href: '/how-it-works', label: 'How It Works' },
     { href: '/contact', label: 'Contact' },
   ];
 

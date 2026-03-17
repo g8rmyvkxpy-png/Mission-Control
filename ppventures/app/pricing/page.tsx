@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const faqs = [
   {
     q: 'What happens after the 14-day trial?',
-    a: "You'll be charged $297 for your first month. You can cancel anytime before that — no charge, no questions. We'll send you a reminder before the trial ends.",
+    a: "You'll be charged ₹25,000 for your first month. You can cancel anytime before that — no charge, no questions. We'll send you a reminder before the trial ends.",
   },
   {
     q: 'How long does setup take?',
@@ -42,7 +42,7 @@ const faqs = [
     a: 'Yes. No contracts, no lock-in. Cancel from your dashboard or email us. Your data is deleted within 30 days of cancellation.',
   },
   {
-    q: 'Is $297/month worth it?',
+    q: 'Is ₹25,000/month worth it?',
     a: 'If you bill $150/hr and our agents save you even 2 hours per month, the product has paid for itself. Most clients report saving 8-10 hours per week.',
   },
 ];
@@ -99,7 +99,7 @@ export default function PricingPage() {
       <section style={{ padding: '40px 20px', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: '500px', margin: '0 auto', background: '#1a1a1d', borderRadius: '24px', padding: '40px', border: '2px solid #10b981' }}>
           <h2 style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>PPVentures Automation Suite</h2>
-          <p style={{ color: '#10b981', fontSize: '56px', fontWeight: '800', marginBottom: '8px' }}>$297<span style={{ fontSize: '20px', fontWeight: '400' }}>/month</span></p>
+          <p style={{ color: '#10b981', fontSize: '56px', fontWeight: '800', marginBottom: '8px' }}>₹25,000<span style={{ fontSize: '20px', fontWeight: '400' }}>/month</span></p>
           <p style={{ color: '#6b7280', fontSize: '14px', marginBottom: '32px' }}>After a free 14-day trial. Cancel anytime.</p>
           
           <div style={{ textAlign: 'left', marginBottom: '32px' }}>
@@ -158,6 +158,15 @@ export default function PricingPage() {
                 <button type="submit" disabled={status === 'loading'} style={{ width: '100%', padding: '16px 24px', background: '#10b981', border: 'none', borderRadius: '10px', color: '#fff', fontWeight: '700', fontSize: '16px', cursor: 'pointer', opacity: status === 'loading' ? 0.7 : 1 }}>
                   {status === 'loading' ? 'Creating account...' : 'Start Free Trial →'}
                 </button>
+                
+                {/* Instant Pay Option */}
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #27272a' }}>
+                  <p style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginBottom: '12px' }}>Or pay instantly via UPI</p>
+                  <a href="upi://pay?pa=ppventures@ybl&pn=PPVentures&am=500" style={{ display: 'block', padding: '12px', background: '#1a1a1d', borderRadius: '8px', color: '#fff', textAlign: 'center', textDecoration: 'none', border: '1px solid #10b981' }}>
+                    📱 Pay ₹500 via UPI
+                  </a>
+                  <p style={{ color: '#6b7280', fontSize: '10px', textAlign: 'center', marginTop: '8px' }}>Google Pay, PhonePe, Paytm accepted</p>
+                </div>
                 {status === 'error' && (
                   <p style={{ color: '#ef4444', marginTop: '12px', textAlign: 'center' }}>Something went wrong. Please try again.</p>
                 )}

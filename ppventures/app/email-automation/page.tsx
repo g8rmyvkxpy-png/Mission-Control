@@ -50,14 +50,14 @@ const howItWorks = [
 const pricing = [
   {
     name: 'Starter',
-    price: '$197',
+    price: '₹16,500',
     desc: 'For individuals',
     features: ['Up to 500 emails/month', '3 routing rules', '1 auto-response', 'Daily digest'],
     cta: 'Get Started',
   },
   {
     name: 'Professional',
-    price: '$297',
+    price: '₹25,000',
     popular: true,
     desc: 'For small teams',
     features: ['Unlimited emails', '10 routing rules', '5 auto-responses', 'CRM integration', 'Follow-up sequences', 'Priority support'],
@@ -65,7 +65,7 @@ const pricing = [
   },
   {
     name: 'Business',
-    price: '$497',
+    price: '₹42,000',
     desc: 'For growing businesses',
     features: ['Everything in Pro', 'Unlimited rules', 'Unlimited automations', 'Custom integrations', 'Dedicated support'],
     cta: 'Contact Us',
@@ -74,13 +74,33 @@ const pricing = [
 
 export default function EmailAutomationPage() {
   const [formData, setFormData] = useState({ name: '', email: '', company: '', needs: '' });
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
-    await new Promise(r => setTimeout(r, 1500));
-    setStatus('success');
+    
+    try {
+      const response = await fetch('/api/lead-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company,
+          product: 'Email Automation',
+          source: 'email-automation-page'
+        })
+      });
+      
+      if (response.ok) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      setStatus('error');
+    }
   };
 
   if (status === 'success') {

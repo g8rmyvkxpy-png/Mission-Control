@@ -109,7 +109,7 @@ export default function AIOpsPage() {
           lineHeight: 1.6
         }}>
           Custom automations built with n8n. We handle the tech — 
-          you focus on growth. Starting at $500 per automation.
+          you focus on growth. Starting at ₹42,000 per automation.
         </p>
 
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -231,7 +231,7 @@ export default function AIOpsPage() {
               textAlign: 'center'
             }}>
               <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>One-Off</h3>
-              <div style={{ fontSize: '36px', fontWeight: '800', marginBottom: '8px', color: '#10b981' }}>$500-3K</div>
+              <div style={{ fontSize: '36px', fontWeight: '800', marginBottom: '8px', color: '#10b981' }}>₹40,000-2,50,000</div>
               <p style={{ color: '#71717a', fontSize: '14px', marginBottom: '24px' }}>per automation</p>
               <ul style={{ textAlign: 'left', color: '#a1a1aa', fontSize: '14px', lineHeight: 2, listStyle: 'none' }}>
                 <li>✓ Single process automation</li>
@@ -259,7 +259,7 @@ export default function AIOpsPage() {
                 POPULAR
               </div>
               <h3 style={{ fontSize: '20px', fontWeight: '600', marginBottom: '8px', color: '#fff' }}>Retainer</h3>
-              <div style={{ fontSize: '36px', fontWeight: '800', marginBottom: '8px', color: '#10b981' }}>$2K-10K</div>
+              <div style={{ fontSize: '36px', fontWeight: '800', marginBottom: '8px', color: '#10b981' }}>₹1.5L-8L</div>
               <p style={{ color: '#71717a', fontSize: '14px', marginBottom: '24px' }}>per month</p>
               <ul style={{ textAlign: 'left', color: '#a1a1aa', fontSize: '14px', lineHeight: 2, listStyle: 'none' }}>
                 <li>✓ Ongoing automations</li>
@@ -432,10 +432,10 @@ export default function AIOpsPage() {
                 }}
               >
                 <option value="">Select Monthly Budget</option>
-                <option value="under-2k">Under $2K</option>
-                <option value="2k-5k">$2K - $5K</option>
-                <option value="5k-10k">$5K - $10K</option>
-                <option value="10k+">$10K+</option>
+                <option value="under-2k">Under ₹1.5L</option>
+                <option value="2k-5k">₹1.5L-4L</option>
+                <option value="5k-10k">₹4L-8L</option>
+                <option value="10k+">₹8L++</option>
               </select>
             </div>
             <button
@@ -455,6 +455,15 @@ export default function AIOpsPage() {
             >
               {status === 'loading' ? 'Sending...' : 'Get Free Audit →'}
             </button>
+            
+            {/* Instant Consultation Booking */}
+            <div style={{ marginTop: '20px', paddingTop: '20px', borderTop: '1px solid #27272a' }}>
+              <p style={{ color: '#6b7280', fontSize: '12px', textAlign: 'center', marginBottom: '12px' }}>Need urgent help? Book instant consultation</p>
+              <a href="upi://pay?pa=ppventures@ybl&pn=PPVentures&am=1000" style={{ display: 'block', padding: '14px', background: '#1a1a1d', borderRadius: '8px', color: '#fff', textAlign: 'center', textDecoration: 'none', border: '1px solid #f59e0b' }}>
+                🔥 Pay ₹1,000 & Book Now
+              </a>
+              <p style={{ color: '#6b7280', fontSize: '10px', textAlign: 'center', marginTop: '8px' }}>30-min video call • Instant scheduling</p>
+            </div>
           </form>
         </div>
       </div>

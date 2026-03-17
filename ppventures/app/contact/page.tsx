@@ -147,6 +147,15 @@ export default function ContactPage() {
           <p style={{ textAlign: 'center', marginTop: '24px', color: '#6b7280', fontSize: '14px' }}>
             Or email us directly: <a href="mailto:hello@ppventures.tech" style={{ color: '#10b981' }}>hello@ppventures.tech</a>
           </p>
+          
+          {/* WhatsApp Option */}
+          <div style={{ textAlign: 'center', marginTop: '24px', padding: '20px', background: '#1a1a1d', borderRadius: '12px' }}>
+            <p style={{ color: '#a1a1aa', marginBottom: '12px' }}>Prefer instant responses?</p>
+            <a href="https://wa.me/919999999999" target="_blank" rel="noopener" style={{ display: 'inline-block', padding: '14px 28px', background: '#25D366', borderRadius: '8px', color: '#fff', fontWeight: '700', textDecoration: 'none', fontSize: '16px' }}>
+              💬 Chat on WhatsApp
+            </a>
+            <p style={{ color: '#6b7280', fontSize: '12px', marginTop: '8px' }}>Typically replies within minutes</p>
+          </div>
         </div>
       </section>
 

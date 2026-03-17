@@ -5,6 +5,12 @@
 - **Me:** Neo - AI assistant, proactive, autonomous
 - **Mission:** Build 24/7 autonomous company, SaaS millions
 
+## IMPORTANT: Maximize MiniMax API Usage
+- **MiniMax API is underutilized** - Using only ~10%
+- **Always use MiniMax for:** Content generation, outreach personalization, lead qualification, customer responses
+- Don't waste human time on tasks AI can do
+- Every task should leverage AI when possible
+
 ## Command Centre (http://72.62.231.18:3001)
 - Full productivity hub with Tasks, Content, Calendar, Team, Projects
 - **Supabase:** https://iglfjgsqqknionzmmprj.supabase.co
@@ -40,6 +46,12 @@
   - Published blog post: "How to Automate Your Inbox"
   - Created sales pipeline in /marketing/sales-pipeline.md
   - Website live at localhost:8080
+- [2026-03-17] ### Outreach Campaign Launched
+  - Found 3 marketing agencies with email addresses
+  - Created ready-to-send email templates
+  - Built AI lead qualification endpoint
+  - Website live at ppventures.vercel.app
+  - Products: Email Automation (₹16K-41K), Report Automation (₹12K-33K)
 - [2026-03-14] ### Revenue & Task Priorities Implemented
   - Created REVENUE_SCHEMA.sql with revenue_entries, pipeline, milestones tables
   - Enhanced tasks table with priority_score (P0-P3) and due_date

@@ -44,14 +44,14 @@ const features = [
 const pricing = [
   {
     name: 'Starter',
-    price: '$147',
+    price: '₹12,000',
     desc: 'For individuals',
     features: ['1 data source', '5 reports/month', 'Email delivery', 'Basic templates'],
     cta: 'Get Started',
   },
   {
     name: 'Professional',
-    price: '$247',
+    price: '₹20,000',
     popular: true,
     desc: 'For small teams',
     features: ['3 data sources', 'Unlimited reports', 'Scheduled delivery', 'Custom templates', 'Slack integration', 'Priority support'],
@@ -59,7 +59,7 @@ const pricing = [
   },
   {
     name: 'Business',
-    price: '$397',
+    price: '₹33,000',
     desc: 'For enterprises',
     features: ['Unlimited data sources', 'Unlimited reports', 'API access', 'White-label', 'Dedicated support', 'SLA guarantee'],
     cta: 'Contact Us',
@@ -68,13 +68,33 @@ const pricing = [
 
 export default function ReportAutomationPage() {
   const [formData, setFormData] = useState({ name: '', email: '', company: '', needs: '' });
-  const [status, setStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+  const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
-    await new Promise(r => setTimeout(r, 1500));
-    setStatus('success');
+    
+    try {
+      const response = await fetch('/api/lead-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company,
+          product: 'Report Automation',
+          source: 'report-automation-page'
+        })
+      });
+      
+      if (response.ok) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      setStatus('error');
+    }
   };
 
   if (status === 'success') {
