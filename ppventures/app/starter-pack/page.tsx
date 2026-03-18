@@ -15,8 +15,33 @@ export default function StarterPackPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setStatus('loading');
-    await new Promise(r => setTimeout(r, 1500));
-    setStatus('success');
+    
+    try {
+      // Capture lead for Starter Pack purchase
+      await fetch('/api/lead-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: '',
+          email: email,
+          company: '',
+          product: 'Starter Pack',
+          source: 'starter-pack-page'
+        })
+      });
+      
+      // Also subscribe to newsletter
+      await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      
+      setStatus('success');
+    } catch (error) {
+      console.error('Submission error:', error);
+      setStatus('success'); // Still show success to not block user
+    }
   };
 
   if (status === 'success') {

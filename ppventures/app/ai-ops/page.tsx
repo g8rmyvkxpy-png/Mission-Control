@@ -22,9 +22,29 @@ export default function AIOpsPage() {
     e.preventDefault();
     setStatus('loading');
     
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 1500));
-    setStatus('success');
+    try {
+      const response = await fetch('/api/lead-capture', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          company: formData.company,
+          source: 'ai-ops-page',
+          product: formData.process,
+          budget: formData.budget
+        })
+      });
+      
+      if (response.ok) {
+        setStatus('success');
+      } else {
+        setStatus('error');
+      }
+    } catch (error) {
+      console.error('Lead capture error:', error);
+      setStatus('error');
+    }
   };
 
   const offerings = [

@@ -138,5 +138,15 @@
     "product": "Email Automation",
     "status": "new",
     "created_at": "2026-03-17T11:02:31.713Z"
+  },
+  {
+    "id": "1773822891357",
+    "name": "Test Lead",
+    "email": "test@example.com",
+    "company": "TestCo",
+    "source": "test",
+    "product": "AI Automation",
+    "status": "new",
+    "created_at": "2026-03-18T08:34:51.357Z"
   }
 ]

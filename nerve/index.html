@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NERVE - PPVentures</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-200">
+  <div id="app" class="min-h-screen p-4">
+    <div class="text-center py-8">
+      <h1 class="text-2xl font-bold text-white mb-4">Loading NERVE...</h1>
+    </div>
+  </div>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+    const SUPABASE_URL = 'https://bazaaeguvkjiqjjngluiq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhemFlaGd1dmtqaWNqanhnbHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Mjk2NzgsImV4cCI6MjA4OTQwNTY3OH0.oHj6tJ8AtRUHMKvaFf8SbAadKwtXh8_iLmqKw0ZDIIo';
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const formatINR = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+
+    // State
+    let state = {
+      products: [],
+      tasks: [],
+      clients: [],
+      revenue: [],
+      activity: [],
+      loading: true,
+      error: null,
+      activeTab: 'products',
+      selectedProduct: null
+    };
+
+    // Fetch all data
+    async function fetchAll() {
+      try {
+        const [products, tasks, clients, revenue, activity] = await Promise.all([
+          supabase.from('products').select('*').order('created_at', { ascending: false }),
+          supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+          supabase.from('clients').select('*').order('created_at', { ascending: false }),
+          supabase.from('revenue').select('*').order('date', { ascending: false }).limit(20),
+          supabase.from('activity_log').select('*').order('created_at', { ascending: false }).limit(20)
+        ]);
+
+        state.products = products.data || [];
+        state.tasks = tasks.data || [];
+        state.clients = clients.data || [];
+        state.revenue = revenue.data || [];
+        state.activity = activity.data || [];
+        state.loading = false;
+        state.error = null;
+      } catch (e) {
+        state.error = e.message;
+        state.loading = false;
+      }
+      render();
+    }
+
+    // Render
+    function render() {
+      const app = document.getElementById('app');
+      
+      if (state.loading) {
+        app.innerHTML = '<div class="text-center py-8"><h1 class="text-2xl font-bold text-white">Loading...</h1></div>';
+        return;
+      }
+
+      if (state.error) {
+        app.innerHTML = `<div class="text-center py-8"><h1 class="text-2xl font-bold text-red-400 mb-2">Error</h1><p class="text-gray-400">${state.error}</p><button onclick="fetchAll()" class="mt-4 px-4 py-2 bg-gray-700 rounded">Retry</button></div>`;
+        return;
+      }
+
+      const todoTasks = state.tasks.filter(t => t.status === 'todo').length;
+      const inProgressTasks = state.tasks.filter(t => t.status === 'in_progress').length;
+      const doneTasks = state.tasks.filter(t => t.status === 'done').length;
+      const pipelineValue = state.clients.filter(c => c.status === 'lead' || c.status === 'prospect').reduce((sum, c) => sum + (parseFloat(c.deal_value) || 0), 0);
+      const thisMonth = new Date().toISOString().slice(0, 7);
+      const monthRevenue = state.revenue.filter(r => r.date?.startsWith(thisMonth)).reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+      const activeClients = state.clients.filter(c => c.status === 'active_client').length;
+
+      let content = '';
+      
+      // Products tab
+      if (state.activeTab === 'products') {
+        content = `
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <h2 class="font-bold text-white">Products</h2>
+                <button onclick="showProductForm()" class="px-3 py-1 bg-green-700 rounded text-sm">+ Add</button>
+              </div>
+              ${state.products.length === 0 ? '<div class="text-gray-500 text-sm">No products yet</div>' : state.products.map(p => `
+                <div onclick="selectProduct('${p.id}')" class="p-3 rounded cursor-pointer border ${state.selectedProduct?.id === p.id ? 'border-green-500 bg-gray-800' : 'border-gray-800 hover:border-gray-700'}">
+                  <div class="font-medium text-white">${p.name}</div>
+                  <div class="flex gap-2 mt-2">
+                    <span class="px-2 py-0.5 rounded text-xs bg-yellow-900 text-yellow-200">${p.status}</span>
+                    <span class="px-2 py-0.5 rounded text-xs bg-purple-800 text-purple-200">${p.stage}</span>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+            <div class="lg:col-span-2">
+              ${state.selectedProduct ? `
+                <div>
+                  <div class="flex justify-between items-center mb-4">
+                    <h2 class="font-bold text-white">${state.selectedProduct.name} — Tasks</h2>
+                    <button onclick="showTaskForm()" class="px-3 py-1 bg-green-700 rounded text-sm">+ Add Task</button>
+                  </div>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    ${['todo', 'in_progress', 'done', 'blocked'].map(status => `
+                      <div class="bg-gray-900 p-3 rounded">
+                        <div class="text-xs text-gray-400 uppercase mb-2">${status.replace('_', ' ')}</div>
+                        ${state.tasks.filter(t => t.product_id === state.selectedProduct.id && t.status === status).map(t => `
+                          <div class="p-2 bg-gray-800 rounded mb-2 text-sm">
+                            <div class="text-white">${t.title}</div>
+                          </div>
+                        `).join('')}
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : '<div class="text-gray-500">Select a product to see tasks</div>'}
+            </div>
+          </div>
+        `;
+      }
+
+      // Clients tab
+      if (state.activeTab === 'clients') {
+        content = `
+          <div>
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="font-bold text-white">Clients & Leads</h2>
+              <button onclick="showClientForm()" class="px-3 py-1 bg-green-700 rounded text-sm">+ Add Client</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-900">
+                  <tr>
+                    <th class="p-2 text-left">Name</th>
+                    <th class="p-2 text-left">Status</th>
+                    <th class="p-2 text-right">Deal Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${state.clients.map(c => `
+                    <tr class="border-t border-gray-800">
+                      <td class="p-2 text-white">${c.name}</td>
+                      <td class="p-2"><span class="px-2 py-0.5 rounded text-xs ${c.status === 'lead' ? 'bg-gray-600' : c.status === 'prospect' ? 'bg-yellow-600' : 'bg-green-600'}">${c.status}</span></td>
+                      <td class="p-2 text-right text-white">${c.deal_value ? formatINR(c.deal_value) : '—'}</td>
+                    </tr>
+                  `).join('')}
+                  ${state.clients.length === 0 ? '<tr><td colspan="3" class="p-4 text-center text-gray-500">No clients yet</td></tr>' : ''}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      // Revenue tab
+      if (state.activeTab === 'revenue') {
+        content = `
+          <div>
+            <div class="flex justify-between items-center mb-4">
+              <h2 class="font-bold text-white">Revenue</h2>
+              <button onclick="showRevenueForm()" class="px-3 py-1 bg-green-700 rounded text-sm">+ Add Revenue</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-900">
+                  <tr>
+                    <th class="p-2 text-left">Date</th>
+                    <th class="p-2 text-right">Amount</th>
+                    <th class="p-2 text-left">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${state.revenue.map(r => `
+                    <tr class="border-t border-gray-800">
+                      <td class="p-2 text-gray-400">${r.date}</td>
+                      <td class="p-2 text-right text-green-400 font-medium">${formatINR(r.amount)}</td>
+                      <td class="p-2 text-gray-400">${r.type}</td>
+                    </tr>
+                  `).join('')}
+                  ${state.revenue.length === 0 ? '<tr><td colspan="3" class="p-4 text-center text-gray-500">No revenue yet</td></tr>' : ''}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+      }
+
+      // Activity tab
+      if (state.activeTab === 'activity') {
+        content = `
+          <div>
+            <h2 class="font-bold text-white mb-4">Activity Feed</h2>
+            <div class="space-y-2">
+              ${state.activity.map(a => `
+                <div class="p-3 bg-gray-900 rounded text-sm">
+                  <span class="text-green-400">${a.action}</span>
+                  <span class="text-gray-500 text-xs ml-2">${new Date(a.created_at).toLocaleString()}</span>
+                </div>
+              `).join('')}
+              ${state.activity.length === 0 ? '<div class="text-gray-500">No activity yet</div>' : ''}
+            </div>
+          </div>
+        `;
+      }
+
+      app.innerHTML = `
+        <!-- TOP BAR -->
+        <div class="bg-gray-900 border-b border-gray-800 p-4 flex items-center justify-between flex-wrap gap-4 mb-4">
+          <h1 class="text-xl font-bold text-white">NERVE</h1>
+          <div class="flex items-center gap-6 flex-wrap">
+            <div class="text-center">
+              <div class="text-2xl font-bold text-white">${state.products.length}</div>
+              <div class="text-xs text-gray-400">Products</div>
+            </div>
+            <div class="text-center">
+              <div class="text-lg"><span class="text-yellow-400">${todoTasks}</span> / <span class="text-blue-400">${inProgressTasks}</span> / <span class="text-green-400">${doneTasks}</span></div>
+              <div class="text-xs text-gray-400">Tasks</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-yellow-400">${formatINR(pipelineValue)}</div>
+              <div class="text-xs text-gray-400">Pipeline</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-green-400">${formatINR(monthRevenue)}</div>
+              <div class="text-xs text-gray-400">This Month</div>
+            </div>
+            <div class="text-center">
+              <div class="text-2xl font-bold text-blue-400">${activeClients}</div>
+              <div class="text-xs text-gray-400">Active Clients</div>
+            </div>
+            <button onclick="fetchAll()" class="px-3 py-1 bg-gray-800 rounded text-sm">↻</button>
+          </div>
+        </div>
+
+        <!-- TABS -->
+        <div class="flex border-b border-gray-800 bg-gray-900 mb-4">
+          ${['products', 'clients', 'revenue', 'activity'].map(tab => `
+            <button onclick="setTab('${tab}')" class="px-6 py-3 text-sm font-medium capitalize ${state.activeTab === tab ? 'text-white border-b-2 border-green-500 bg-gray-800' : 'text-gray-400 hover:text-white'}">${tab}</button>
+          `).join('')}
+        </div>
+
+        <!-- CONTENT -->
+        ${content}
+      `;
+    }
+
+    window.selectProduct = (id) => {
+      state.selectedProduct = state.products.find(p => p.id === id);
+      render();
+    };
+
+    window.setTab = (tab) => {
+      state.activeTab = tab;
+      render();
+    };
+
+    window.fetchAll = fetchAll;
+
+    // Forms
+    window.showProductForm = () => {
+      const name = prompt('Product name:');
+      if (name) {
+        supabase.from('products').insert([{ name, status: 'idea', stage: 'mvp' }]).then(() => fetchAll());
+      }
+    };
+
+    window.showTaskForm = () => {
+      if (!state.selectedProduct) return;
+      const title = prompt('Task title:');
+      if (title) {
+        supabase.from('tasks').insert([{ title, status: 'todo', priority: 'medium', product_id: state.selectedProduct.id }]).then(() => fetchAll());
+      }
+    };
+
+    window.showClientForm = () => {
+      const name = prompt('Client name:');
+      if (name) {
+        supabase.from('clients').insert([{ name, status: 'lead' }]).then(() => fetchAll());
+      }
+    };
+
+    window.showRevenueForm = () => {
+      const amount = prompt('Amount (₹):');
+      if (amount) {
+        supabase.from('revenue').insert([{ amount: parseFloat(amount), type: 'subscription', date: new Date().toISOString().split('T')[0] }]).then(() => fetchAll());
+      }
+    };
+
+    // Init
+    fetchAll();
+  </script>
+</body>
+</html>
