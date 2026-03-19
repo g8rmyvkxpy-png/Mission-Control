@@ -94,6 +94,7 @@ export default function Footer() {
             <Link href="/services" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Services</Link>
             <Link href="/automation" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Automation Suite</Link>
             <Link href="/blog" style={{ color: '#6b7280', fontSize: '14px', textDecoration: 'none' }}>Blog</Link>
+            <Link href="/case-studies" style={{ color: '#10b981', fontSize: '14px', textDecoration: 'none' }}>Case Studies</Link>
           </div>
         </div>
         

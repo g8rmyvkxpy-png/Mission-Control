@@ -2,6 +2,168 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Premium font */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 body {
   background: #0a0a0b;
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Tabular numbers for data */
+.font-data {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Subtle card depth */
+.card-elevated {
+  background: linear-gradient(135deg, #1a1d27, #1e2130);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.04);
+  border-radius: 12px;
+}
+
+/* Status glow */
+.glow-green { box-shadow: 0 0 12px rgba(34,197,94,0.25); }
+.glow-yellow { box-shadow: 0 0 12px rgba(234,179,8,0.25); }
+.glow-red { box-shadow: 0 0 12px rgba(239,68,68,0.25); }
+.glow-blue { box-shadow: 0 0 12px rgba(59,130,246,0.25); }
+
+/* Neo's pulsing border */
+@keyframes neoPulse {
+  0%, 100% { border-color: rgba(34,197,94,0.3); }
+  50% { border-color: rgba(34,197,94,0.7); }
+}
+.neo-card {
+  border: 2px solid rgba(34,197,94,0.3);
+  animation: neoPulse 3s ease-in-out infinite;
+}
+
+/* Modal entrance */
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+.modal-content {
+  animation: modalIn 0.2s ease-out;
+}
+
+/* Backdrop blur */
+.modal-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Smooth tab transitions */
+.tab-content {
+  animation: fadeIn 0.15s ease-in;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Hover effects */
+.card-interactive:hover {
+  transform: scale(1.005);
+  border-color: rgba(255,255,255,0.1);
+  transition: all 0.2s ease;
+}
+
+/* Priority stripe */
+.priority-urgent { border-left: 3px solid #ef4444; }
+.priority-high { border-left: 3px solid #f97316; }
+.priority-medium { border-left: 3px solid #eab308; }
+.priority-low { border-left: 3px solid #6b7280; }
+
+/* Card hover glow */
+.card-glow:hover {
+  box-shadow: 0 0 20px rgba(34,197,94,0.15);
+  transition: box-shadow 0.3s ease;
+}
+
+/* Subtle gradient backgrounds */
+.bg-gradient-card {
+  background: linear-gradient(135deg, #1a1d27 0%, #1e2130 100%);
+}
+
+/* Tab active indicator */
+.tab-active {
+  background: rgba(34,197,94,0.1);
+  border-bottom: 2px solid #22c55e;
+}
+
+/* Badge styles */
+.badge-green {
+  background: rgba(34,197,94,0.15);
+  color: #22c55e;
+  box-shadow: 0 0 8px rgba(34,197,94,0.3);
+}
+
+/* Button hover effects */
+button {
+  transition: all 0.2s ease;
+}
+
+/* Stat card hover */
+.stat-card {
+  transition: all 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* Table row hover */
+tbody tr:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+/* Sub-agent card hover */
+.sub-agent-card {
+  transition: all 0.2s ease;
+}
+.sub-agent-card:hover {
+  border-color: rgba(34,197,94,0.3);
+  box-shadow: 0 0 15px rgba(34,197,94,0.1);
+}
+
+/* Working agent pulse */
+@keyframes workingPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.working-indicator {
+  animation: workingPulse 1.5s ease-in-out infinite;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Input focus glow */
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(34,197,94,0.3);
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

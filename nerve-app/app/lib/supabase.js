@@ -1,11 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = 'https://bazaaeguvkjiqjjngluiq.supabase.co';
+const SUPABASE_URL = 'https://bazaehguvkjicjjxgluq.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhemFlaGd1dmtqaWNqanhnbHVxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4Mjk2NzgsImV4cCI6MjA4OTQwNTY3OH0.oHj6tJ8AtRUHMKvaFf8SbAadKwtXh8_iLmqKw0ZDIIo';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 export const formatINR = (amount) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+
+export const timeAgo = (dateStr) => {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const seconds = Math.floor((now - date) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+};
 
 export const logActivity = async (action, entityType, entityId) => {
   await supabase.from('activity_log').insert([{ action, entity_type: entityType, entity_id: entityId }]);
